@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	pdf "github.com/papercutsoftware/pdfsearch"
+	"github.com/papercutsoftware/pdfsearch"
 	"github.com/papercutsoftware/pdfsearch/doclib"
 )
 
