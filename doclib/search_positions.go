@@ -225,7 +225,7 @@ func (s PdfMatchSet) String() string {
 	return b.String()
 }
 
-// Filter returns a filtered list of results is `s` as a PdfMatchSet.
+// Filter returns a filtered list of results as a PdfMatchSet.
 func (s PdfMatchSet) Filter(maxResultsPerFile int) PdfMatchSet {
 	fileCounts := map[string]int{}
 	var matches []PdfMatch

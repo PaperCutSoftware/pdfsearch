@@ -1,10 +1,11 @@
-
 // Copyright 2019 PaperCut Software International Pty Ltd. All rights reserved.
+
 package base
 
 import (
 	"fmt"
 	"sort"
+
 	"github.com/unidoc/unipdf/v3/common"
 	"github.com/unidoc/unipdf/v3/extractor"
 )
