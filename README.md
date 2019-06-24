@@ -3,7 +3,7 @@ Pure Go Full Text Search of PDF Files
 This library implements full text search for PDF files.
 * The public APIs are in [index_search.go](index_search.go).
 * A command line program that exercises these APIs in
-[examples/index_search_example.go]](examples/index_search_example.go).
+[examples/index_search_example.go](examples/index_search_example.go).
 
 Installation
 ---------------------
