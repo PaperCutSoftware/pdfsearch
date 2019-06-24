@@ -1,4 +1,5 @@
 // Copyright 2019 PaperCut Software International Pty Ltd. All rights reserved.
+
 package doclib
 
 import "sort"

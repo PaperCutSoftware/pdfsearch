@@ -24,14 +24,16 @@ import (
 	"os"
 	"time"
 
+	"github.com/blevesearch/bleve"
 	"github.com/papercutsoftware/pdfsearch/doclib"
 	"github.com/papercutsoftware/pdfsearch/serial"
-	"github.com/blevesearch/bleve"
 	"github.com/unidoc/unipdf/v3/common"
 )
 
 const (
+	// DefaultMaxResults is the default maximum number of results returned.
 	DefaultMaxResults = 10
+	// DefaultPersistDir is the default root for on-disk indexes.
 	DefaultPersistDir = "store.pdf.index"
 )
 
@@ -57,11 +59,6 @@ func IndexPdfFiles(pathList []string, persist bool, persistDir string, report fu
 		defer rs.Close()
 		rsList = append(rsList, rs)
 	}
-	// nameList := make([]string, len(pathList))
-	// for i, inPath := range pathList {
-	// 	// Don't send actual paths. This prevents library code from using the paths
-	// 	nameList[i] = filepath.Base(inPath)
-	// }
 	return IndexPdfReaders(pathList, rsList, persist, persistDir, report)
 }
 
@@ -90,7 +87,8 @@ func IndexPdfReaders(pathList []string, rsList []io.ReadSeeker, persist bool, pe
 	report func(string)) (PdfIndex, error) {
 
 	if !persist {
-		lState, bleveIdx, numPages, dtPdf, dtBleve, err := doclib.IndexPdfReaders(pathList, rsList, "", true, false, report)
+		lState, bleveIdx, numPages, dtPdf, dtBleve, err := doclib.IndexPdfReaders(pathList, rsList,
+			"", true, false, report)
 		if err != nil {
 			return PdfIndex{}, err
 		}
@@ -106,7 +104,8 @@ func IndexPdfReaders(pathList []string, rsList []io.ReadSeeker, persist bool, pe
 			dtBleve:    dtBleve,
 		}, nil
 	}
-	_, bleveIdx, numPages, dtPdf, dtBleve, err := doclib.IndexPdfReaders(pathList, rsList, persistDir, true, false, report)
+	_, bleveIdx, numPages, dtPdf, dtBleve, err := doclib.IndexPdfReaders(pathList, rsList,
+		persistDir, true, false, report)
 	if err != nil {
 		return PdfIndex{}, err
 	}
@@ -177,6 +176,11 @@ func MarkupPdfResults(results doclib.PdfMatchSet, outPath string) error {
 	return extractList.SaveOutputPdf(outPath)
 }
 
+// PdfIndex is an opaque struct that describes an index over some PDF files.
+// It consists of
+// - a bleve index (bleveIdx),
+// - a mapping between the PDF files and the index (lState)
+// - controls and statistics.
 type PdfIndex struct {
 	persist    bool
 	reused     bool
@@ -207,6 +211,7 @@ func (p PdfIndex) Equals(q PdfIndex) bool {
 	return true
 }
 
+// String returns a string describing `p`.
 func (p PdfIndex) String() string {
 	return fmt.Sprintf("PdfIndex{[%s index] numFiles=%d numPages=%d duration=%s lState=%s}",
 		p.StorageName(), p.numFiles, p.numPages, p.Duration(), p.lState.String())
@@ -401,7 +406,7 @@ func uint32FromBytes(b []byte) (uint32, error) {
 	return n, nil
 }
 
-// sliceHash returns a SHA-1 hash of `data`.
+// sliceHash returns a SHA-1 hash of `data` as a hexidecimal string.
 func sliceHash(data []byte) string {
 	h := sha1.New()
 	h.Write(data)

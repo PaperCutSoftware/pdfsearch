@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/papercutsoftware/pdfsearch"
+	pdfsearch "github.com/papercutsoftware/pdfsearch"
 	"github.com/papercutsoftware/pdfsearch/doclib"
 )
 

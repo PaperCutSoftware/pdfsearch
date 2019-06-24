@@ -11,7 +11,6 @@ require (
 	github.com/blevesearch/segment v0.0.0-20160915185041-762005e7a34f // indirect
 	github.com/bmatcuk/doublestar v1.1.1
 	github.com/boltdb/bolt v1.3.1 // indirect
-	github.com/boombuler/barcode v1.0.0
 	github.com/couchbase/vellum v0.0.0-20190610201045-ec7b775d247f // indirect
 	github.com/edsrzf/mmap-go v1.0.0 // indirect
 	github.com/golang/protobuf v1.3.1 // indirect

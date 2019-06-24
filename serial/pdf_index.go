@@ -1,13 +1,15 @@
+// Copyright 2019 PaperCut Software International Pty Ltd. All rights reserved.
+
 package serial
 
 import (
 	"errors"
 	"fmt"
 
+	flatbuffers "github.com/google/flatbuffers/go"
 	"github.com/papercutsoftware/pdfsearch/base"
 	"github.com/papercutsoftware/pdfsearch/serial/locations"
 	"github.com/papercutsoftware/pdfsearch/serial/pdf_index"
-	flatbuffers "github.com/google/flatbuffers/go"
 	"github.com/unidoc/unipdf/v3/common"
 )
 

@@ -1,4 +1,5 @@
 // Copyright 2019 PaperCut Software International Pty Ltd. All rights reserved.
+
 package doclib
 
 // Based on Unidoc Console Logger.
@@ -51,18 +52,8 @@ func init() {
 	flag.BoolVar(&ExposeErrors, "x", ExposeErrors, "Don't recover from library panics.")
 }
 
-func _SetLogging() {
-	if Trace {
-		common.SetLogger(common.NewConsoleLogger(common.LogLevelTrace))
-	} else if Debug {
-		common.SetLogger(common.NewConsoleLogger(common.LogLevelDebug))
-	} else {
-		common.SetLogger(common.NewConsoleLogger(common.LogLevelInfo))
-	}
-	common.Log.Info("Debug=%t Trace=%t", Debug, Trace)
-}
-
 // PdfOpenFile opens PDF file `inPath` and attempts to handle null encryption schemes.
+// If `lazy` is true, a lazy PDF reader is opened.
 func PdfOpenFile(inPath string, lazy bool) (*pdf.PdfReader, error) {
 
 	f, err := os.Open(inPath)
@@ -73,6 +64,8 @@ func PdfOpenFile(inPath string, lazy bool) (*pdf.PdfReader, error) {
 	return PdfOpenReader(f, lazy)
 }
 
+// PdfOpenFile opens the PDF file accessed by `f` and attempts to handle null encryption schemes.
+// If `lazy` is true, a lazy PDF reader is opened.
 func PdfOpenReader(f io.ReadSeeker, lazy bool) (*pdf.PdfReader, error) {
 
 	var pdfReader *pdf.PdfReader
