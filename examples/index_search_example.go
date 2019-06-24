@@ -1,4 +1,5 @@
 // Copyright 2019 PaperCut Software International Pty Ltd. All rights reserved.
+
 package main
 
 import (
@@ -63,7 +64,7 @@ func main() {
 
 	flag.StringVar(&pathPattern, "f", pathPattern, "PDF file(s) to index.")
 	flag.StringVar(&outPath, "o", outPath, "Name of PDF file that will show marked up results.")
-	flag.StringVar(&persistDir, "s", pdf.DefaultPersistDir, "The on-disk index is stored here.")
+	flag.StringVar(&persistDir, "s", pdfsearch.DefaultPersistDir, "The on-disk index is stored here.")
 	flag.BoolVar(&serialize, "m", serialize, "Serialize in-memory index to byte array.")
 	flag.BoolVar(&persist, "p", persist, "Store index on disk (slower but allows more PDF files).")
 	flag.BoolVar(&reuse, "r", reuse, "Reused stored index on disk for the last -p run.")
@@ -154,17 +155,17 @@ func main() {
 	}
 }
 
-// runIndexSearchShow creates a pdf.PdfIndex for the PDF files in `pathList`, searches for `term` in
+// runIndexSearchShow creates a pdfsearch.PdfIndex for the PDF files in `pathList`, searches for `term` in
 // this index, and shows the results.
 // It also creates a marked-up PDF containing the original PDF pages with the matched terms marked
 //  and saves it to `outPath`.
 // This is the main test function. The runIndexSearch() function is calls shows you how to create an
 // index annd search it.
 //
-//  `persistDir`: The directory the pdf.PdfIndex is saved in if `persist` is true.
-//  `serialize`: Serialize in-memory pdf.PdfIndex to a []byte.
-//  `persist`: Persist pdf.PdfIndex to disk.
-//  `reuse`: Don't create a pdf.PdfIndex. Reuse one that was previously persisted to disk.
+//  `persistDir`: The directory the pdfsearch.PdfIndex is saved in if `persist` is true.
+//  `serialize`: Serialize in-memory pdfsearch.PdfIndex to a []byte.
+//  `persist`: Persist pdfsearch.PdfIndex to disk.
+//  `reuse`: Don't create a pdfsearch.PdfIndex. Reuse one that was previously persisted to disk.
 //  `nameOnly`: Show matching file names only.
 //  `useReaderSeeker`: Exercise the io.ReaderSeeker API.
 //  `maxResults`: Max number of search results to return.
@@ -184,10 +185,10 @@ func runIndexSearchShow(pathList []string, term, persistDir string, serialize, p
 // It also creates a marked-up PDF containing the original PDF pages with the matched terms marked
 //  and saves it to `outPath`.
 //
-//  `persistDir`: The directory the pdf.PdfIndex is saved in if `persist` is true.
-//  `serialize`: Serialize in-memory pdf.PdfIndex to a []byte.
-//  `persist`: Persist pdf.PdfIndex to disk.
-//  `reuse`: Don't create a pdf.PdfIndex. Reuse one that was previously persisted to disk.
+//  `persistDir`: The directory the pdfsearch.PdfIndex is saved in if `persist` is true.
+//  `serialize`: Serialize in-memory pdfsearch.PdfIndex to a []byte.
+//  `persist`: Persist pdfsearch.PdfIndex to disk.
+//  `reuse`: Don't create a pdfsearch.PdfIndex. Reuse one that was previously persisted to disk.
 //  `nameOnly`: Show matching file names only.
 //  `useReaderSeeker`: Exercise the io.ReaderSeeker API.
 //  `maxResults`: Max number of search results to return.
@@ -210,13 +211,13 @@ func runIndexSearchShowGroups(pathList []string, term, persistDir string, serial
 	}
 }
 
-// runAllModesGroups is like runIndexSearchShowGroups() except that it creates the pdf.PdfIndex as
+// runAllModesGroups is like runIndexSearchShowGroups() except that it creates the pdfsearch.PdfIndex as
 // a) in-memory unserialized and b) serialized and compares the indexes and search results for a)
 // and b). It does this for each group.
 // If `testDisk` is true then an on-disk index is also created and the index and search results are
 // compared to the in-memory index and results.
 //
-//  `persistDir`: The directory the pdf.PdfIndex is saved in if `persist` is true.
+//  `persistDir`: The directory the pdfsearch.PdfIndex is saved in if `persist` is true.
 //  `nameOnly`: Show matching file names only.
 //  `useReaderSeeker`: Exercise the io.ReaderSeeker API.
 //  `maxResults`: Max number of search results to return.
@@ -242,12 +243,12 @@ func runAllModesGroups(pathList []string, term, persistDir string, nameOnly,
 	}
 }
 
-// runAllModes is like runIndexSearchShow() except that it creates the pdf.PdfIndex as
+// runAllModes is like runIndexSearchShow() except that it creates the pdfsearch.PdfIndex as
 // a) in-memory unserialized and b) serialized and compares the indexes and search results for a)
 // and b).
 // If `testDisk` is true then an on-disk index is also created and the index and search results are
 // compared to the in-memory index and results.
-//  `persistDir`: The directory the pdf.PdfIndex is saved in if `persist` is true.
+//  `persistDir`: The directory the pdfsearch.PdfIndex is saved in if `persist` is true.
 //  `nameOnly`: Show matching file names only.
 //  `useReaderSeeker`: Exercise the io.ReaderSeeker API.
 //  `maxResults`: Max number of search results to return.
@@ -255,7 +256,7 @@ func runAllModesGroups(pathList []string, term, persistDir string, nameOnly,
 func runAllModes(pathList []string, term, persistDir string, nameOnly,
 	useReaderSeeker bool, maxResults int, outPath string, testDisk bool) error {
 
-	var pdfIndexDisk pdf.PdfIndex
+	var pdfIndexDisk pdfsearch.PdfIndex
 	var resultsDisk doclib.PdfMatchSet
 	var dtDisk, dtIndexDisk time.Duration
 
@@ -315,26 +316,26 @@ func runAllModes(pathList []string, term, persistDir string, nameOnly,
 	return nil
 }
 
-// runIndexSearch creates a pdf.PdfIndex for the PDF files in `pathList`, searches for `term` in
-// this index and returns the pdf.PdfIndex, the search results and the indexing and search durations.
+// runIndexSearch creates a pdfsearch.PdfIndex for the PDF files in `pathList`, searches for `term` in
+// this index and returns the pdfsearch.PdfIndex, the search results and the indexing and search durations.
 // This is the main function. It shows you how to create an index annd search it.
 //
-//  `persistDir`: The directory the pdf.PdfIndex is saved in if `persist` is true.
-//  `serialize`: Serialize in-memory pdf.PdfIndex to a []byte.
-//  `persist`: Persist pdf.PdfIndex to disk.
-//  `reuse`: Don't create a pdf.PdfIndex. Reuse one that was previously persisted to disk.
+//  `persistDir`: The directory the pdfsearch.PdfIndex is saved in if `persist` is true.
+//  `serialize`: Serialize in-memory pdfsearch.PdfIndex to a []byte.
+//  `persist`: Persist pdfsearch.PdfIndex to disk.
+//  `reuse`: Don't create a pdfsearch.PdfIndex. Reuse one that was previously persisted to disk.
 //  `useReaderSeeker`: Exercise the io.ReaderSeeker API.
 //  `maxResults`: Max number of search results to return.
 func runIndexSearch(pathList []string, term, persistDir string, serialize, persist, reuse,
 	useReaderSeeker bool, maxResults int) (
-	pdfIndex pdf.PdfIndex, results doclib.PdfMatchSet, dt, dtIndex time.Duration, err error) {
+	pdfIndex pdfsearch.PdfIndex, results doclib.PdfMatchSet, dt, dtIndex time.Duration, err error) {
 
 	fmt.Fprintf(os.Stderr, "@@@@ %t %t %d %q\n", serialize, persist, len(pathList), pathList)
 
 	t0 := time.Now()
 	var data []byte
 	if reuse {
-		pdfIndex = pdf.ReuseIndex(persistDir)
+		pdfIndex = pdfsearch.ReuseIndex(persistDir)
 	} else if serialize {
 		var rsList []io.ReadSeeker
 		for i, inPath := range pathList {
@@ -347,12 +348,12 @@ func runIndexSearch(pathList []string, term, persistDir string, serialize, persi
 			rsList = append(rsList, rs)
 		}
 		fmt.Println("````````````````````````````````````")
-		data, err = pdf.IndexPdfMem(pathList, rsList, report)
+		data, err = pdfsearch.IndexPdfMem(pathList, rsList, report)
 		if err != nil {
 			return pdfIndex, results, dt, dtIndex, err
 		}
 	} else {
-		pdfIndex, err = pdf.IndexPdfFiles(pathList, persist, persistDir, report, useReaderSeeker)
+		pdfIndex, err = pdfsearch.IndexPdfFiles(pathList, persist, persistDir, report, useReaderSeeker)
 		if err != nil {
 			return pdfIndex, results, dt, dtIndex, err
 		}
@@ -360,7 +361,7 @@ func runIndexSearch(pathList []string, term, persistDir string, serialize, persi
 
 	dtIndex = time.Since(t0)
 	if serialize {
-		results, err = pdf.SearchMem(data, term, maxResults)
+		results, err = pdfsearch.SearchMem(data, term, maxResults)
 		if err != nil {
 			return pdfIndex, results, dt, dtIndex, err
 		}
@@ -376,7 +377,7 @@ func runIndexSearch(pathList []string, term, persistDir string, serialize, persi
 
 	// Deserialize the index for analyis. Not used for searching above.
 	if data != nil {
-		pdfIndex, _ = pdf.FromBytes(data)
+		pdfIndex, _ = pdfsearch.FromBytes(data)
 	}
 	return pdfIndex, results, dt, dtIndex, nil
 }
@@ -387,13 +388,13 @@ func runIndexSearch(pathList []string, term, persistDir string, serialize, persi
 //  and saves it to `outPath`.
 //
 //  `dt` and `dtSearch` are the durations of the indexing + search, and search.
-//  `serialize`: Serialize in-memory pdf.PdfIndex to a []byte.
-//  `persist`: Persist pdf.PdfIndex to disk.
-//  `reuse`: Don't create a pdf.PdfIndex. Reuse one that was previously persisted to disk.
+//  `serialize`: Serialize in-memory pdfsearch.PdfIndex to a []byte.
+//  `persist`: Persist pdfsearch.PdfIndex to disk.
+//  `reuse`: Don't create a pdfsearch.PdfIndex. Reuse one that was previously persisted to disk.
 //  `nameOnly`: Show matching file names only.
 //  `useReaderSeeker`: Exercise the io.ReaderSeeker API.
 //  `maxResults`: Max number of search results to return.
-func showResults(pathList []string, pdfIndex pdf.PdfIndex, results doclib.PdfMatchSet,
+func showResults(pathList []string, pdfIndex pdfsearch.PdfIndex, results doclib.PdfMatchSet,
 	dt, dtIndex time.Duration, serialize, nameOnly bool, maxResults int, outPath string) error {
 
 	if nameOnly {
@@ -411,7 +412,7 @@ func showResults(pathList []string, pdfIndex pdf.PdfIndex, results doclib.PdfMat
 		fmt.Println("=================xxx=====================")
 	}
 
-	if err := pdf.MarkupPdfResults(results, outPath); err != nil {
+	if err := pdfsearch.MarkupPdfResults(results, outPath); err != nil {
 		return err
 	}
 	fmt.Println("=================+++=====================")
