@@ -1,10 +1,10 @@
 Elevator Pitch (<= 300 characters)
 ==============
-Modern software product developers try to work as close to the top of  a powerful open source
+Many modern software product developers work close to the top of a powerful open source
 software stack and focus on their customer problems.
 
 This talk is about how I worked further down the Go software stack to write a PDF Full Text
-Search Engine and ihow it provided value in unexpected ways.
+Search Engine and how it provided business value in unexpected ways.
 
 PDF Full Text in Pure Go. What? Why? How?
 =========================================
