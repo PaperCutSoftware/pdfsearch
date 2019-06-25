@@ -15,6 +15,15 @@ type DocPageLocations struct {
 	locations []TextLocation
 }
 
+// TextLocation describes the location of a text fragment on a PDF page.
+// The text of PDF pages is extracted and sent to bleve for indexing. TextLocation is used to map
+// the results of bleve searches back to PDF contents.
+// bleve searches returns offsets of the matches on the extracted text.
+type TextLocation struct {
+	Start, End         uint32  // Offsets of start and end of the fragment in extracted page text.
+	Llx, Lly, Urx, Ury float32 // Bounding box of fragment on PDF page.
+}
+
 // Equals returns true if `dpl` contains the same information as `epl`.
 func (dpl DocPageLocations) Equals(epl DocPageLocations) bool {
 	if len(dpl.locations) != len(epl.locations) {
@@ -45,12 +54,6 @@ func (dpl *DocPageLocations) AppendTextLocation(loc TextLocation) {
 	dpl.locations = append(dpl.locations, loc)
 }
 
-// TextLocation describes the location of text on a page.
-type TextLocation struct {
-	Start, End         uint32
-	Llx, Lly, Urx, Ury float32
-}
-
 // Equals returns true if `t` has the same text interval and bounding box as `u`.
 func (t TextLocation) Equals(u TextLocation) bool {
 	if t.Start != u.Start {
@@ -73,23 +76,26 @@ func (t TextLocation) Equals(u TextLocation) bool {
 	}
 	return true
 }
+
 func (t TextLocation) String() string {
 	return fmt.Sprintf("{TextLocation: %d:%d (%5.1f, %5.1f) (%5.1f, %5.1f)}",
 		t.Start, t.End,
 		t.Llx, t.Lly, t.Urx, t.Ury)
 }
 
+// DplFromExtractorLocations converts []extractor.TextLocation `locations` to a more compact
+// base.DocPageLocations.
+// Why? !@#$
 func DplFromExtractorLocations(locations []extractor.TextLocation) DocPageLocations {
 	var dpl DocPageLocations
 	for _, uloc := range locations {
 		loc := fromExtractorLocation(uloc)
-		// common.Log.Debug("%d: %s", i, stl)
 		dpl.locations = append(dpl.locations, loc)
 	}
 	return dpl
 }
 
-// ToSerialTextLocation converts extractor.TextLocation `loc` to a more compact base.TextLocation.
+// fromExtractorLocation converts extractor.TextLocation `loc` to a more compact base.TextLocation.
 func fromExtractorLocation(uloc extractor.TextLocation) TextLocation {
 	b := uloc.BBox
 	return TextLocation{

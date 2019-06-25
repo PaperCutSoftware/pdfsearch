@@ -22,6 +22,7 @@ import (
 
 // DocPositions is used to the link per-document data in a bleve index to the PDF file that the
 // per-document data was extracted from.
+// There is one DocPositions per document.
 type DocPositions struct {
 	lState      *PositionsState                  // State of whole store.
 	inPath      string                           // Path of input PDF file.
@@ -38,10 +39,11 @@ type docPersist struct {
 	dataPath    string     // Path of `dataFile`.
 	spansPath   string     // Path where `spans` is saved.
 	textDir     string     // !@#$ Debugging
-	pageDplPath string
+	pageDplPath string     // !@## What is this?
 }
 
 // docData is the data for indexing a PDF file in memory.
+// How is this used? !@#$
 type docData struct {
 	pageNums  []uint32
 	pageTexts []string
@@ -95,25 +97,50 @@ func (d *DocPositions) Equals(e *DocPositions) bool {
 	return true
 }
 
+// String returns a human readable string describing `d`.
 func (d DocPositions) String() string {
-	parts := []string{fmt.Sprintf("%q docIdx=%d mem=%t",
-		filepath.Base(d.inPath), d.docIdx, d.docData != nil)}
+	var sb strings.Builder
+	fmt.Fprintf(&sb, "DocPositions{%q docIdx=%d mem=%t",
+		filepath.Base(d.inPath), d.docIdx, d.docData != nil)
 	if d.docPersist != nil {
-		parts = append(parts, d.docPersist.String())
+		sb.WriteString(d.docPersist.String())
 	}
 	if d.docData != nil {
-		parts = append(parts, d.docData.String())
+		sb.WriteString(d.docData.String())
 	}
 	if (d.docPersist != nil) == (d.docData != nil) {
-		parts = append(parts, "<BAD>")
+		sb.WriteString("<BAD>")
 	}
-	return fmt.Sprintf("DocPositions{%s}", strings.Join(parts, "\n"))
+	sb.WriteString("}")
+	return sb.String()
 }
 
+// Len returns h
 func (d DocPositions) Len() int {
+	panic("DocPositions.Len")
 	return len(d.pageNums)
 }
 
+// isMem returns true if `d` is an in-memory database.
+// Caller must check that (d.docPersist != nil) != (d.docData != nil)
+func (d DocPositions) isMem() bool {
+	// panic(fmt.Errorf("DocPositions.isMem=%t",d.docData != nil))
+	if err := d.validate(); err != nil {
+		panic(err)
+	}
+	return d.docData != nil
+}
+
+func (d DocPositions) validate() error {
+	persist := d.docPersist != nil
+	mem := d.docData != nil
+	if persist == mem {
+		return fmt.Errorf("d=%s should not happen\n%#v", d, d)
+	}
+	return nil
+}
+
+// String returns a human readable string describing `d`.
 func (d docPersist) String() string {
 	var parts []string
 	for i, span := range d.spans {
@@ -132,25 +159,7 @@ func (d docData) String() string {
 	return fmt.Sprintf("docData{pageNums=%d pageTexts=%d%s}", np, nt, bad)
 }
 
-// isMem returns true if `d` is an in-memory database.
-// Caller must check that (d.docPersist != nil) != (d.docData != nil)
-func (d DocPositions) isMem() bool {
-	if err := d.validate(); err != nil {
-		panic(err)
-	}
-	return d.docData != nil
-}
-
-func (d DocPositions) validate() error {
-	persist := d.docPersist != nil
-	mem := d.docData != nil
-	if persist == mem {
-		return fmt.Errorf("d=%s should not happen\n%#v", d, d)
-	}
-	return nil
-}
-
-// openDoc opens `lDoc` for reading. In a persistent `lDoc`, necessary files are opened.
+// openDoc opens `lDoc` for reading. If `lDoc` is persistent, the necessary files are opened.
 func (lDoc *DocPositions) openDoc() error {
 	if lDoc.isMem() {
 		return nil
@@ -229,7 +238,9 @@ func (lDoc *DocPositions) saveJsonDebug() error {
 
 // AddDocPage adds a page (with page number `pageNum` and contents `dpl`) to `lDoc`.
 // !@#$ Remove `text` param.
-func (lDoc *DocPositions) AddDocPage(pageNum uint32, dpl base.DocPageLocations, text string) (uint32, error) {
+func (lDoc *DocPositions) AddDocPage(pageNum uint32, dpl base.DocPageLocations, text string) (
+	uint32, error) {
+
 	if pageNum == 0 {
 		return 0, errors.New("pageNum=0")
 	}

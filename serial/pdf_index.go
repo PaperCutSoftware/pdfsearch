@@ -131,7 +131,7 @@ func addHashIndexPathDoc(b *flatbuffers.Builder, hipd HashIndexPathDoc) flatbuff
 	return pdf_index.HashIndexPathDocEnd(b)
 }
 
-// getHashIndexPathDoc reads a HashIndexPathDoc.
+// getHashIndexPathDoc reads a HashIndexPathDoc. !@#$
 func getHashIndexPathDoc(loc *pdf_index.HashIndexPathDoc) (HashIndexPathDoc, error) {
 	// Copy the HashIndexPathDoc's fields (since these are numbers).
 	var pos pdf_index.DocPositions

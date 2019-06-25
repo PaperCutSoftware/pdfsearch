@@ -10,7 +10,15 @@
  *   p, _ := pdf.IndexPdfFiles(pathList, false)
  *   matches, _ := p.Search("Type 1", -1)
  *   fmt.Printf("Matches=%s\n", matches)
- */
+ * There are 3 types of index
+ *   1) On-disk. These can be as large as your disk but are slower.
+ *         IndexPdfReaders(persist=true)
+ *   2) In-memory with the index stored in a Go struct. Faster but limited to (virtual) memory size.
+ *         IndexPdfReaders(persist=false)
+ *   3) In-memory with the index serialized to a []byte. Useful for non-Go callers such as web apps.
+           IndexPdfMem()
+
+*/
 
 package pdf
 

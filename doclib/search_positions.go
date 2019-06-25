@@ -25,15 +25,33 @@ type PdfMatchSet struct {
 }
 
 // PdfMatch describes a single search match in a PDF document.
-// It is the analog of a bleve search.DocumentMatch
+// It is the analog of a bleve search.DocumentMatch.
 type PdfMatch struct {
 	InPath                string // Path of the PDF file that was matched. (A name stored in the index.)
 	PageNum               uint32 // 1-offset page number of the PDF page containing the matched text.
 	LineNum               int    // 1-offset line number of the matched text within the extracted page text.
 	Line                  string // The contents of the line containing the matched text.
 	base.DocPageLocations        // This is used to find the bounding box of the match text on the PDF page.
-	bleveMatch
+	bleveMatch                   // Internal information !@#$
 }
+
+// bleveMatch is the matching info returned by bleve.
+type bleveMatch struct {
+	docIdx   uint64  // Document index.
+	pageIdx  uint32  // Page index.
+	Score    float64 // bleve score.
+	Fragment string
+	Start    uint32 // Offset of the start of the bleve match in the page.
+	End      uint32 // Offset of the end of the bleve match in the page.
+}
+
+const doValidation = true
+
+// ErrNoMatch indicates there was no match for a bleve hit. It is not a real error.
+var ErrNoMatch = errors.New("no match for hit")
+
+// ErrNoMatch indicates there was no match for a bleve hit. It is not a real error.
+var ErrNoPositions = errors.New("no match for hit")
 
 // Equals returns true if `p` contains the same results as `q`.
 func (p PdfMatchSet) Equals(q PdfMatchSet) bool {
@@ -71,30 +89,24 @@ func (p PdfMatch) Equals(q PdfMatch) bool {
 	return true
 }
 
-// bleveMatch is the matching info returned by bleve.
-type bleveMatch struct {
-	docIdx   uint64
-	pageIdx  uint32
-	Score    float64
-	Fragment string
-	Start    uint32
-	End      uint32
-}
-
-func (s PdfMatchSet) Check() {
+func (s PdfMatchSet) validate() {
+	if !doValidation {
+		return
+	}
 	for i, m := range s.Matches {
 		if m.PageNum == 0 {
-			common.Log.Error("Check %d of %d: pageNum=0", i, len(s.Matches))
+			common.Log.Error("validate %d of %d: pageNum=0", i, len(s.Matches))
 			panic("no positions")
 		}
-		if err := m.Validate(); err != nil {
-			common.Log.Error("Check %d of %d: err=%v", i, len(s.Matches), err)
+		if err := m.validate(); err != nil {
+			common.Log.Error("validate %d of %d: err=%v", i, len(s.Matches), err)
 			panic("no positions")
 		}
 	}
 }
 
-func (m PdfMatch) Validate() error {
+// Validate returns an error if `m` is invalid.
+func (m PdfMatch) validate() error {
 	dpl := m.DocPageLocations
 	if dpl.Len() == 0 {
 		return fmt.Errorf("No positions: Locations=%d m=%s", dpl.Len(), m)
@@ -190,7 +202,7 @@ func (lState *PositionsState) toPdfMatches(sr *bleve.SearchResult) (PdfMatchSet,
 				}
 				return PdfMatchSet{}, err
 			}
-			if err := m.Validate(); err != nil {
+			if err := m.validate(); err != nil {
 				return PdfMatchSet{}, err
 			}
 			matches = append(matches, m)
@@ -204,10 +216,11 @@ func (lState *PositionsState) toPdfMatches(sr *bleve.SearchResult) (PdfMatchSet,
 		SearchDuration: sr.Took,
 		Matches:        matches,
 	}
-	results.Check()
+	results.validate()
 	return results, nil
 }
 
+// String returns a human readable description of `s`.
 func (s PdfMatchSet) String() string {
 	if s.TotalMatches <= 0 {
 		return "No matches"
@@ -215,47 +228,31 @@ func (s PdfMatchSet) String() string {
 	if len(s.Matches) == 0 {
 		return fmt.Sprintf("%d matches, SearchDuration %s\n", s.TotalMatches, s.SearchDuration)
 	}
-	var b strings.Builder
-	fmt.Fprintf(&b, "%d matches, showing %d, SearchDuration %s\n",
+	var sb strings.Builder
+	fmt.Fprintf(&sb, "%d matches, showing %d, SearchDuration %s\n",
 		s.TotalMatches, len(s.Matches), s.SearchDuration)
 	for i, m := range s.Matches {
-		fmt.Fprintln(&b, "--------------------------------------------------")
-		fmt.Fprintf(&b, "%d: %s\n", i+1, m)
+		fmt.Fprintln(&sb, "--------------------------------------------------")
+		fmt.Fprintf(&sb, "%d: %s\n", i+1, m)
 	}
-	return b.String()
-}
-
-// Filter returns a filtered list of results as a PdfMatchSet.
-func (s PdfMatchSet) Filter(maxResultsPerFile int) PdfMatchSet {
-	fileCounts := map[string]int{}
-	var matches []PdfMatch
-	for _, m := range s.Matches {
-		fileCounts[m.InPath]++
-		if fileCounts[m.InPath] <= maxResultsPerFile {
-			matches = append(matches, m)
-		}
-	}
-	return PdfMatchSet{
-		TotalMatches:   s.TotalMatches,
-		SearchDuration: s.SearchDuration, // !@#$ IndexDuration
-		Matches:        matches,
-	}
+	return sb.String()
 }
 
 // Files returns the unique file names in `s`.
 func (s PdfMatchSet) Files() []string {
-	fileSet := map[string]bool{}
+	fileSet := map[string]struct{}{}
 	var files []string
 	for _, m := range s.Matches {
 		if _, ok := fileSet[m.InPath]; ok {
 			continue
 		}
 		files = append(files, m.InPath)
-		fileSet[m.InPath] = true
+		fileSet[m.InPath] = struct{}{}
 	}
 	return files
 }
 
+// String returns a human readable description of `p`.
 func (p PdfMatch) String() string {
 	return fmt.Sprintf("{PdfMatch: path=%q pageNum=%d line=%d (score=%.3f)\nmatch=%q\n"+
 		"^^^^^^^^ Marked up Text ^^^^^^^^\n"+
@@ -292,7 +289,7 @@ func (lState *PositionsState) getPdfMatch(hit *search.DocumentMatch) (PdfMatch, 
 		DocPageLocations: dpl,
 		bleveMatch:       m,
 	}
-	if err := match.Validate(); err != nil {
+	if err := match.validate(); err != nil {
 		return PdfMatch{}, err
 	}
 	return match, nil
@@ -303,9 +300,7 @@ func (m bleveMatch) String() string {
 		m.docIdx, m.pageIdx, m.Score, m.Fragment)
 }
 
-var ErrNoMatch = errors.New("no match for hit")
-
-// getBleveMatch returns a bleveMatch filled with the information in `hit`.
+// getBleveMatch returns a bleveMatch filled with the information in `hit` which comes from bleve.
 func getBleveMatch(hit *search.DocumentMatch) (bleveMatch, error) {
 
 	docIdx, pageIdx, err := decodeID(hit.ID)
@@ -314,14 +309,15 @@ func getBleveMatch(hit *search.DocumentMatch) (bleveMatch, error) {
 	}
 
 	start, end := -1, -1
-	frags := ""
+	var frags strings.Builder
 	common.Log.Debug("------------------------")
+	// !@#$ How many fragments are there?
 	for k, fragments := range hit.Fragments {
 		for _, fragment := range fragments {
-			frags += fragment
+			frags.WriteString(fragment)
 		}
 		loc := hit.Locations[k]
-		common.Log.Info("%q: %v", k, frags)
+		common.Log.Info("%q: %d %v", k, len(loc), frags)
 		for _, v := range loc {
 			for _, l := range v {
 				if start < 0 {
@@ -332,6 +328,7 @@ func getBleveMatch(hit *search.DocumentMatch) (bleveMatch, error) {
 		}
 	}
 	if start < 0 {
+		// !@#$ Do we need to return an error?
 		common.Log.Error("Fragments=%d", len(hit.Fragments))
 		for k := range hit.Fragments {
 			loc := hit.Locations[k]
@@ -350,7 +347,7 @@ func getBleveMatch(hit *search.DocumentMatch) (bleveMatch, error) {
 		docIdx:   docIdx,
 		pageIdx:  pageIdx,
 		Score:    hit.Score,
-		Fragment: frags,
+		Fragment: frags.String(),
 		Start:    uint32(start),
 		End:      uint32(end),
 	}, nil

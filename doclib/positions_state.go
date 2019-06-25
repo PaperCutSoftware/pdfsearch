@@ -1,5 +1,8 @@
 // Copyright 2019 PaperCut Software International Pty Ltd. All rights reserved.
 
+/*
+   What is the purpose of this source file !@#$
+ */
 package doclib
 
 import (
@@ -30,6 +33,7 @@ type FileDesc struct {
 	SizeMB float64 // Size of PDF file on disk.
 }
 
+// String returns a human readable description of `fd`.
 func (fd FileDesc) String() string {
 	return fmt.Sprintf("{FileDesc: %#q %.2f MB %q}", fd.Hash, fd.SizeMB, fd.InPath)
 }
@@ -135,7 +139,6 @@ func IndexPdfReaders(pathList []string, rsList []io.ReadSeeker, persistDir strin
 
 	return lState, index, totalPages, dtPdf, dtBleve, err
 }
-
 type IDText struct {
 	ID   string
 	Text string

@@ -16,7 +16,7 @@ import (
 )
 
 // TODO: Implement -m indexing. Needs bleve PR.
-const usage = `Usage: go run index_search_example.go [OPTIONS] -f "pcng-manual*.pdf"  PaperCut NG
+const usage = `Usage: go run pdf_search_demo.go [OPTIONS] -f "pcng-manual*.pdf"  PaperCut NG
   Performs a full text search for "PaperCut NG" in PDF files that match "pcng-manual*.pdf".
   There are 3 modes of indexing:
    1) in-memory unserialized: default

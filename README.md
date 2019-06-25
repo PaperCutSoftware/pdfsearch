@@ -19,10 +19,11 @@ Installation
 
 Usage
 -----
-    ./pdf_search_demo.go -f PDF32000_2008.pdf Adobe
+    ./pdf_search_demo -f PDF32000_2008.pdf Adobe
 
 
-This program shows how to use the APIs in `index_search.go` to
+[pdf_search_demo.go](examples/pdf_search_demo.go) program shows how to use the APIs in
+[index_search.go](index_search.go) to
 * create indexes over PDF files,
 * search those indexes using full-text search, and
 * mark up PDF files with the locations of the search matches on pages.

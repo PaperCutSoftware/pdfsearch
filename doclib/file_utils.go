@@ -13,12 +13,12 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
-
 	"github.com/bmatcuk/doublestar"
 	"github.com/unidoc/unipdf/v3/common"
 )
 
 // PatternsToPaths returns a list of files matching the patterns in `patternList`.
+// If `sortSize` is true, the returned list is sorted by ascending size.
 func PatternsToPaths(patternList []string, sortSize bool) ([]string, error) {
 	var pathList []string
 	common.Log.Debug("patternList=%d", len(patternList))
@@ -73,6 +73,7 @@ func NewFileFinder(pathList []string) FileFinder {
 
 // NewFileFinderFromCorpus returns a FileFinder for all files in our main corpus directory.
 func NewFileFinderFromCorpus() (FileFinder, error) {
+	panic("NewFileFinderFromCorpus")
 	patternList := []string{"~/testdata/**/*.pdf"}
 	pathList, err := PatternsToPaths(patternList, true)
 	if err != nil {
@@ -145,28 +146,11 @@ func getHomeDir() string {
 	return usr.HomeDir
 }
 
-// ExpandUser returns `filename` with ~ replaced with user's home directory.
+// ExpandUser returns `filename` with "~"" replaced with user's home directory.
 func ExpandUser(filename string) string {
 	return strings.Replace(filename, "~", homeDir, -1)
 }
 
-// RegularFile returns true if file `filename` is a regular file.
-func RegularFile(filename string) (bool, error) {
-	fi, err := os.Stat(filename)
-	if err != nil {
-		return false, err
-	}
-	return fi.Mode().IsRegular(), nil
-}
-
-// FileSize returns the size of file `filename` in bytes.
-func FileSize(filename string) (int64, error) {
-	fi, err := os.Stat(filename)
-	if err != nil {
-		return 0, err
-	}
-	return fi.Size(), nil
-}
 
 // SortFileSize returns the paths of the files in `pathList` sorted by ascending size.
 // If `minSize` >= 0 then only files of this size or larger are returned.
@@ -213,23 +197,41 @@ type fileInfo struct {
 	os.FileInfo
 }
 
+
+// RegularFile returns true if file `filename` is a regular file.
+func RegularFile(filename string) (bool, error) {
+	fi, err := os.Stat(filename)
+	if err != nil {
+		return false, err
+	}
+	return fi.Mode().IsRegular(), nil
+}
+
+// FileSize returns the size of file `filename` in bytes.
+func FileSize(filename string) (int64, error) {
+	fi, err := os.Stat(filename)
+	if err != nil {
+		return 0, err
+	}
+	return fi.Size(), nil
+}
+
+
+// FileHashSize is the maximum number of hexidecimal digits returned for file hashes.
 var FileHashSize = 10
 
 // FileHash returns a hex encoded string of the SHA-256 digest of the contents of file `filename`.
 func FileHash(filename string) (string, error) {
+	panic("FileHash")
 	b, err := ioutil.ReadFile(filename)
 	if err != nil {
 		return "", err
 	}
-	hasher := sha256.New()
-	hasher.Write(b)
-	digest := hex.EncodeToString(hasher.Sum(nil))
-	if FileHashSize > 0 && FileHashSize < len(digest) {
-		digest = digest[:FileHashSize]
-	}
-	return digest, nil
+	return makeHash(b), nil
 }
 
+// ReaderSizeHash return the size in bytes and the hash of the file referenced by `rs`.
+// The hash is hex encoded string of the SHA-256 digest of the contents of `rs`.
 func ReaderSizeHash(rs io.ReadSeeker) (int64, string, error) {
 	numBytes, err := rs.Seek(0, io.SeekEnd)
 	if err != nil {
@@ -244,70 +246,16 @@ func ReaderSizeHash(rs io.ReadSeeker) (int64, string, error) {
 	if err != nil {
 		return 0, "", err
 	}
+	return numBytes, makeHash(b), nil
+}
 
+// makeHash returns a hex encoded string of the SHA-256 digest of `b.
+func makeHash(b []byte) string {
 	hasher := sha256.New()
 	hasher.Write(b)
 	digest := hex.EncodeToString(hasher.Sum(nil))
 	if FileHashSize > 0 && FileHashSize < len(digest) {
 		digest = digest[:FileHashSize]
 	}
-	return numBytes, digest, nil
-}
-
-// Reverse returns `arr` in reverse order.
-func Reverse(arr []string) []string {
-	n := len(arr)
-	rev := make([]string, n)
-	for i, v := range arr {
-		rev[n-i-1] = v
-	}
-	return rev
-}
-
-// CleanCorpus returns `corpus` with known bad files removed.
-func CleanCorpus(corpus []string) []string {
-	var cleaned []string
-	for _, path := range corpus {
-		keep := true
-		for _, bad := range badFiles {
-			if strings.Contains(path, bad) {
-				keep = false
-			}
-		}
-		if keep {
-			cleaned = append(cleaned, path)
-		}
-	}
-	return cleaned
-}
-
-var badFiles = []string{
-	"bookmarks_circular.pdf",            // Stack overflow in reader
-	"4865ab395ed664c3ee17.pdf",          // Stack overflow in image forms
-	"circularReferencesInResources.pdf", // Stack overflow in image forms
-	"mrm-icdar.pdf",                     // !@#$
-	"ghmt.pdf",                          // !@#$
-	"SA_implementations.pdf",            // !@#$
-	"naacl06-shinyama.pdf",              // !@#$
-	"a_im_",                             // !@#$
-	"CaiHof-CIKM2004.pdf",
-	"blurhmt.pdf",
-	"ESCP-R reference_151008.pdf",
-	"a_imagemask.pdf",
-	"sample_chapter_verilab_aop_cookbook.pdf",
-	"TWISCKeyDist.pdf",
-	"ergodicity/1607.04968.pdf",
-	"1812.09449.pdf",                         // hangs
-	"INF586.pdf",                             // hangs
-	"commercial-invoice-template-230kb.pdf",  // r=invalid pad length
-	"CGU_Motor_Vehicle_Insurance_Policy.pdf", // r=invalid pad length
-	"Forerunner_230_OM_EN.pdf} r=invalid",    // r=invalid pad length
-	"transitions_test.pdf",                   //required attribute missing (No /Type/Font )
-	"page_tree_multiple_levels.pdf",          //required attribute missing
-	// "book.pdf",                               //version not found
-
-	// // !@#$
-	"/Symbolics_Common_Lis",
-	// "CAM_Low Back Pain",
-	// "yangbio",
+	return digest
 }
