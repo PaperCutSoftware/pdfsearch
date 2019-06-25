@@ -2,21 +2,24 @@ Pure Go Full Text Search of PDF Files
 =====================================
 This library implements full text search for PDF files.
 * The public APIs are in [index_search.go](index_search.go).
-* A command line program that exercises these APIs in
-[examples/index_search_example.go](examples/index_search_example.go).
+* [examples/pdf_search_demo.go](examples/pdf_search_demo.go) is a command line program
+  that demonstrates these APIs.
+* [examples/pdf_search_verify.go](examples/pdf_search_verify.go) is a command line program
+  that verifies the consistency of these  APIs.
+
 
 Installation
 ---------------------
     git clone https://github.com/PaperCutSoftware/pdfsearch
     cd pdfsearch/examples
-    go build -ldflags "-s -w"  index_search_example.go
+    go build -ldflags "-s -w" pdf_search_demo.go
     upx index_search_example
 
-    (Gives a 5931024 byte binary on Peter's macbook)
+    (Gives a 5,931,024 byte binary on Peter's macbook)
 
 Usage
-=====
-    go run index_search_example.go -f PDF32000_2008.pdf Adobe
+-----
+    ./pdf_search_demo.go -f PDF32000_2008.pdf Adobe
 
 
 This program shows how to use the APIs in `index_search.go` to
@@ -31,12 +34,9 @@ It has 3 types of index
 
 
 Libraries
-=========
+--------
 
 This simple programs  uses [UniDoc](https://unidoc.io/) for PDF parsing and [bleve](http://github.com/blevesearch/bleve) for search.  It can be used explore the UniDoc and Bleve libraries.
-
-
-
 
 
 Background
@@ -70,3 +70,7 @@ TIMINGS
 	661 pages in 1 files [/Users/pcadmin/testdata/other/pcng/docs/target/output/pcng-manual.pdf]
 
 
+TODO
+====
+Cleanup validate() Check()
+Simple command line program
