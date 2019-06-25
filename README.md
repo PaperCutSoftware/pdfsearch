@@ -1,5 +1,7 @@
 Pure Go Full Text Search of PDF Files
 =====================================
+**NOTE: This is currently waiting on [UniDoc](https://unidoc.io/) to merge a [pull request](https://github.com/unidoc/unipdf/pull/75). We expect this to be completed before the end of June.**
+
 This library implements full text search for PDF files.
 * The public APIs are in [index_search.go](index_search.go).
 * [examples/pdf_search_demo.go](examples/pdf_search_demo.go) is a command line program
@@ -51,14 +53,14 @@ TIMINGS
 
 	Some timings from Peter's old MacBook:
 
-	./index_search_example -p -f ~/testdata/adobe/PDF32000_2008.pdf  Type 1
+	./pdf_search_demo -p -f ~/testdata/adobe/PDF32000_2008.pdf  Type 1
 	[On-disk index] Duration=72.4 sec
 
-	./index_search_example -f ~/testdata/adobe/PDF32000_2008.pdf  Type 1
+	./pdf_search_demo -f ~/testdata/adobe/PDF32000_2008.pdf  Type 1
 	[In-memory index] Duration=22.7 sec
 
 	Timings from Peter's Mac Book Pro.
-	./index_search_example -f ~/testdata/other/pcng/docs/target/output/pcng-manual.pdf  PaperCut NG
+	./pdf_search_demo -f ~/testdata/other/pcng/docs/target/output/pcng-manual.pdf  PaperCut NG
 	[In-memory index] Duration=87.3 sec (87.220 index + 0.055 search) (454.4 pages/min)
 	[In-memory index] Duration=91.9 sec (91.886 index + 0.060 search) (431.3 pages/min)
 	[In-memory index] Duration=83.1 sec (83.027 index + 0.068 search) (477.3 pages/min)
