@@ -4,10 +4,10 @@ Many modern software product developers work close to the top of a powerful open
 software stack and focus on their customer problems.
 
 This talk is about how I worked further down the Go software stack to write a PDF Full Text
-Search Engine and how it provided business value in unexpected ways.
+Search Engine and provided business value in unexpected ways.
 
-PDF Full Text in Pure Go. What? Why? How?
-=========================================
+PDF Full Text Search in Pure Go. What? Why? How?
+================================================
 A common and effective way for modern software product companies to operate is to solve customer
 problems using a powerful open source software stack.
 
@@ -42,10 +42,10 @@ Business Value
   instance with a webservice around Elasticsearch. Just call the Go function. Quickly paid back the
   2-3 developer weeks spent writing the Go library.
 * Was used in 3 apps.
-* 1) Search over a user’s files stored locally on disk. Private
-* 2)Search over a shared index stored on a bucket. The app writer needed the run the indexing code and
+  1) Search over a user’s files stored locally on disk. Private
+  2) Search over a shared index stored on a bucket. The app writer needed the run the indexing code and
    search code one Google node and to store the index as a flat memory buffer.
-* 3) Check for terms in a PDF as it arrives. (Short-lived in-memory index.)
+  3) Check for terms in a PDF as it arrives. (Short-lived in-memory index.)
 * In the talk we will show how we solved these problems by calling Go code.
 
 
