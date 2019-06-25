@@ -6,8 +6,10 @@ software stack and focus on their customer problems.
 This talk is about how I worked further down the Go software stack to write a PDF Full Text
 Search Engine and provided business value in unexpected ways.
 
+Talk Proposal
+=============
 PDF Full Text Search in Pure Go. What? Why? How?
-================================================
+------------------------------------------------
 A common and effective way for modern software product companies to operate is to solve customer
 problems using a powerful open source software stack.
 
@@ -27,11 +29,12 @@ years of work.
 
 In this talk I will explain
 
-* How I wrote a [PDF Full Text Search Engine]( https://github.com/PaperCutSoftware/pdfsearch
+* How I wrote a [PDF Full Text Search Engine](https://github.com/PaperCutSoftware/pdfsearch
 ) in a few developer weeks
 * How the maturity of the Go software stack allowed this (and give dates on when the libraries I used
-   gained functionality necessary for this). [UniDoc](https://unidoc.io/) for the PDF text extraction and
-   [bleve](http://github.com/blevesearch/bleve) for the indexing and full text search.
+   gained functionality necessary for this). The libraries were
+  1) [UniDoc](https://unidoc.io/) for the PDF text extraction and
+  2) [bleve](http://github.com/blevesearch/bleve) for the indexing and full text search.
 * The business value of a small pure Go Full Text Search Engine with limited functionality over a
   fully-featured Java implementation (see below).
 * The development possibilities an idiomatic Go implementation opens up (see below).
@@ -54,3 +57,31 @@ Development possibilities of idiomatic Go implementations
 * Runs fast. This is a Go app that does nothing but index and search PDFs. It is a tiny fraction of the code in Adobe Reader. Therefore it can run fast
 * Can be fixed fast. There are heuristics in text extraction. These are much easier to tweek in idiomatic Go than in mature Java code.
 * Write domain specific searches. E.g. Extract tables from the PDFs and create indexes over tables for scientific and financial work.
+
+
+NOTES FOR REVIEWERS
+===================
+The code that will describe in the talk, [PDF Full Text Search Engine](https://github.com/PaperCutSoftware/pdfsearch
+), is referenced in the proposal above.
+
+This code is used in [PaperCut](https://www.papercut.com/) products. The PaperCut commercial code
+has a few modifications such as licence keys and other private data. Otherwise it is the same as
+the open source code.
+
+The PaperCut code runs on Windows, Mac and Unix on customer premises and on Google Cloud for
+PaperCut's web based products
+
+
+BIO
+===
+My name is [Peter Williams](https://www.linkedin.com/in/peterwilliams97/), lead developer of
+enabling technologies at [PaperCut](https://www.papercut.com/). I develop libraries and code for
+PaperCut’s products.
+
+I have been developing in Go for the last few years. Some of the features and componets I have
+recently written in Go for PaperCut are
+* A printing back-end for Google Cloud Print
+* A printing back-end and IPP stack for PaperCut Mobility
+* PDF grayscale conversion
+* PDF watermarking
+* The 3 apps mentioned in the talk
