@@ -40,10 +40,6 @@ Libraries
 This simple programs  uses [UniDoc](https://unidoc.io/) for PDF parsing and [bleve](http://github.com/blevesearch/bleve) for search.  It can be used explore the UniDoc and Bleve libraries.
 
 
-Background
-==========
-https://www.youtube.com/watch?v=RsOIiW_Ec4c 45:40
-
 
 ### Page Indexing
 https://www.hathitrust.org/blogs/large-scale-search/tale-two-solrs-0
@@ -75,3 +71,5 @@ TODO
 ====
 Cleanup validate() Check()
 Simple command line program
+Remove panic()'s
+Remove !@#$'s

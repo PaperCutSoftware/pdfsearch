@@ -114,10 +114,10 @@ func (m PdfMatch) validate() error {
 	return nil
 }
 
-// SearchPositionIndex performs a bleve search on `idex `for `term` and returns up to
-// `maxResults` matches. It maps the results to PDF page names, page numbers, line
-// numbers and page locations using the PositionsState that was saved in directory `persistDir` by
-// persistDir by IndexPdfReaders().
+// SearchPositionIndex performs a bleve search on the persistent index in `persistDir`/bleve for
+// `term` and returns up to `maxResults` matches. It maps the results to PDF page names, page
+// numbers, line numbers and page locations using the PositionsState that was saved in directory
+// `persistDir`  by IndexPdfReaders().
 func SearchPersistentPdfIndex(persistDir, term string, maxResults int) (PdfMatchSet, error) {
 	p := PdfMatchSet{}
 

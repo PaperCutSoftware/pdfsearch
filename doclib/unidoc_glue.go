@@ -46,10 +46,18 @@ func init() {
 
 	flag.BoolVar(&Debug, "d", false, "Print debugging information.")
 	flag.BoolVar(&Trace, "e", false, "Print detailed debugging information.")
+	flag.BoolVar(&ExposeErrors, "x", ExposeErrors, "Don't recover from library panics.")
+
 	if Trace {
 		Debug = true
 	}
-	flag.BoolVar(&ExposeErrors, "x", ExposeErrors, "Don't recover from library panics.")
+	if Trace {
+		common.SetLogger(common.NewConsoleLogger(common.LogLevelTrace))
+	} else if Debug {
+		common.SetLogger(common.NewConsoleLogger(common.LogLevelDebug))
+	} else {
+		common.SetLogger(common.NewConsoleLogger(common.LogLevelInfo))
+	}
 }
 
 // PdfOpenFile opens PDF file `inPath` and attempts to handle null encryption schemes.
@@ -202,13 +210,14 @@ func ExtractPageTextObject(page *pdf.PdfPage) (*extractor.PageText, error) {
 }
 
 // PDFPageProcessor is used for processing a PDF file one page at a time.
+// It is an opaque struct.
 type PDFPageProcessor struct {
 	inPath    string
 	pdfFile   *os.File
 	pdfReader *pdf.PdfReader
 }
 
-// CreatePDFPageProcessorFile creates a  PDFPageProcessor for reading the PDF file `inPath`.
+// CreatePDFPageProcessorFile creates a PDFPageProcessor for reading the PDF file `inPath`.
 func CreatePDFPageProcessorFile(inPath string) (*PDFPageProcessor, error) {
 	pdfFile, err := os.Open(inPath)
 	if err != nil {

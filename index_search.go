@@ -10,15 +10,25 @@
  *   p, _ := pdf.IndexPdfFiles(pathList, false)
  *   matches, _ := p.Search("Type 1", -1)
  *   fmt.Printf("Matches=%s\n", matches)
+ *
  * There are 3 types of index
  *   1) On-disk. These can be as large as your disk but are slower.
- *         IndexPdfReaders(persist=true)
+ *         IndexPdfFiles(persist=true)
  *   2) In-memory with the index stored in a Go struct. Faster but limited to (virtual) memory size.
- *         IndexPdfReaders(persist=false)
+ *         IndexPdfFiles(persist=false)
  *   3) In-memory with the index serialized to a []byte. Useful for non-Go callers such as web apps.
-           IndexPdfMem()
+ *		   IndexPdfMem()  !@#$ Geoff. Why do you need this?
+ *
+ * There are 2 ways of reading PDF files
+ *   1) By filename.
+ *         IndexPdfFiles()
+ *   2) By io.ReadSeeker
+ *         IndexPdfReaders()
+ * The io.ReadSeeker methods are for callers that don't have access to the PDF files on a file
+ * system. !@#$ Geoff. Why do you need this?
+ *
 
-*/
+ */
 
 package pdf
 
@@ -49,8 +59,9 @@ const (
 // If `persist` is false, the index is stored in memory.
 // If `persist` is true, the index is stored on disk in `persistDir`.
 // `report` is a supplied function that is called to report progress.
-// If `useReaderSeeker` then a slice of io.ReadSeeker is passed to the PDF processing library. This
-// should only be used for testing the io.ReadSeeker API.
+// If `useReaderSeeker` is true, a slice of io.ReadSeeker is passed to the PDF processing library.
+// `useReaderSeeker` should only be used for testing the io.ReadSeeker API because it may exhaust
+//   open file handles.
 func IndexPdfFiles(pathList []string, persist bool, persistDir string, report func(string),
 	useReaderSeeker bool) (PdfIndex, error) {
 
@@ -95,8 +106,8 @@ func IndexPdfReaders(pathList []string, rsList []io.ReadSeeker, persist bool, pe
 	report func(string)) (PdfIndex, error) {
 
 	if !persist {
-		lState, bleveIdx, numPages, dtPdf, dtBleve, err := doclib.IndexPdfReaders(pathList, rsList,
-			"", true, false, report)
+		lState, bleveIdx, numPages, dtPdf, dtBleve, err := doclib.IndexPdfFilesOrReaders(pathList,
+			rsList, "", true, false, report)
 		if err != nil {
 			return PdfIndex{}, err
 		}
@@ -112,12 +123,17 @@ func IndexPdfReaders(pathList []string, rsList []io.ReadSeeker, persist bool, pe
 			dtBleve:    dtBleve,
 		}, nil
 	}
-	_, bleveIdx, numPages, dtPdf, dtBleve, err := doclib.IndexPdfReaders(pathList, rsList,
+
+	// Persistent indexing
+	_, bleveIdx, numPages, dtPdf, dtBleve, err := doclib.IndexPdfFilesOrReaders(pathList, rsList,
 		persistDir, true, false, report)
 	if err != nil {
 		return PdfIndex{}, err
 	}
-	bleveIdx.Close()
+	if bleveIdx != nil {
+		bleveIdx.Close()
+	}
+
 	return PdfIndex{
 		persist:    true,
 		persistDir: persistDir,

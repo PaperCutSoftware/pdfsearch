@@ -399,30 +399,6 @@ func (lDoc *DocPositions) GetTextPath(pageIdx uint32) string {
 	return filepath.Join(lDoc.textDir, fmt.Sprintf("%03d.txt", pageIdx))
 }
 
-func CreateFileDesc(inPath string, rs io.ReadSeeker) (FileDesc, error) {
-	if rs != nil {
-		size, hash, err := ReaderSizeHash(rs)
-		return FileDesc{
-			InPath: inPath,
-			Hash:   hash,
-			SizeMB: float64(size) / 1024.0 / 1024.0,
-		}, err
-	}
-	hash, err := FileHash(inPath)
-	if err != nil {
-		return FileDesc{}, err
-	}
-	size, err := FileSize(inPath)
-	if err != nil {
-		return FileDesc{}, err
-	}
-	return FileDesc{
-		InPath: inPath,
-		Hash:   hash,
-		SizeMB: float64(size) / 1024.0 / 1024.0,
-	}, nil
-}
-
 // DocPageText contains doc:page indexes, the PDF page number and the text extracted from from a PDF
 // page.
 type DocPageText struct {
