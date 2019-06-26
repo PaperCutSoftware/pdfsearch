@@ -10,10 +10,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
 	"github.com/blevesearch/bleve"
 	"github.com/blevesearch/bleve/search"
-	"github.com/papercutsoftware/pdfsearch/base"
 	"github.com/unidoc/unipdf/v3/common"
 )
 
@@ -31,7 +29,7 @@ type PdfMatch struct {
 	PageNum               uint32 // 1-offset page number of the PDF page containing the matched text.
 	LineNum               int    // 1-offset line number of the matched text within the extracted page text.
 	Line                  string // The contents of the line containing the matched text.
-	base.DocPageLocations        // This is used to find the bounding box of the match text on the PDF page.
+	DocPageLocations        // This is used to find the bounding box of the match text on the PDF page.
 	bleveMatch                   // Internal information !@#$
 }
 

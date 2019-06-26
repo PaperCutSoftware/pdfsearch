@@ -15,7 +15,6 @@ import (
 	"strings"
 
 	flatbuffers "github.com/google/flatbuffers/go"
-	"github.com/papercutsoftware/pdfsearch/base"
 	"github.com/papercutsoftware/pdfsearch/serial"
 	"github.com/unidoc/unipdf/v3/common"
 )
@@ -24,12 +23,12 @@ import (
 // per-document data was extracted from.
 // There is one DocPositions per document.
 type DocPositions struct {
-	lState      *PositionsState                  // State of whole store.
-	inPath      string                           // Path of input PDF file.
-	docIdx      uint64                           // Index into lState.fileList.
-	pageDpl     map[uint32]base.DocPageLocations // {pageNum: locations of text on page}
-	*docPersist                                  // Optional extra fields for in-memory indexes.
-	*docData                                     // Optional extra fields for on-disk indexes.
+	lState      *PositionsState             // State of whole store.
+	inPath      string                      // Path of input PDF file.
+	docIdx      uint64                      // Index into lState.fileList.
+	pageDpl     map[uint32]DocPageLocations // {pageNum: locations of text on page}
+	*docPersist                             // Optional extra fields for in-memory indexes.
+	*docData                                // Optional extra fields for on-disk indexes.
 }
 
 // docPersist tracks the info for indexing a PDF file on disk.
@@ -237,8 +236,9 @@ func (lDoc *DocPositions) saveJsonDebug() error {
 }
 
 // AddDocPage adds a page (with page number `pageNum` and contents `dpl`) to `lDoc`.
+// It returns the page index, that can be used to access this page from ReadPagePositions()
 // !@#$ Remove `text` param.
-func (lDoc *DocPositions) AddDocPage(pageNum uint32, dpl base.DocPageLocations, text string) (
+func (lDoc *DocPositions) AddDocPage(pageNum uint32, dpl DocPageLocations, text string) (
 	uint32, error) {
 
 	if pageNum == 0 {
@@ -254,11 +254,11 @@ func (lDoc *DocPositions) AddDocPage(pageNum uint32, dpl base.DocPageLocations, 
 	return lDoc.addDocPagePersist(pageNum, dpl, text)
 }
 
-func (lDoc *DocPositions) addDocPagePersist(pageNum uint32, dpl base.DocPageLocations,
+func (lDoc *DocPositions) addDocPagePersist(pageNum uint32, dpl DocPageLocations,
 	text string) (uint32, error) {
 
 	b := flatbuffers.NewBuilder(0)
-	buf := serial.MakeDocPageLocations(b, dpl)
+	buf := serial.MakeDocPageLocations(b, dpl.locations)
 	check := crc32.ChecksumIEEE(buf) // uint32
 	offset, err := lDoc.dataFile.Seek(0, io.SeekCurrent)
 	if err != nil {
@@ -287,6 +287,7 @@ func (lDoc *DocPositions) addDocPagePersist(pageNum uint32, dpl base.DocPageLoca
 	return pageIdx, err
 }
 
+// !@#$ Needed?
 func (lDoc *DocPositions) ReadPageText(pageIdx uint32) (string, error) {
 	if lDoc.isMem() {
 		return lDoc.pageTexts[pageIdx], nil
@@ -305,16 +306,16 @@ func (lDoc *DocPositions) readPersistedPageText(pageIdx uint32) (string, error) 
 
 // ReadPagePositions returns the DocPageLocations of the text on the `pageIdx` (0-offset)
 // returned text in document `lDoc`.
-func (lDoc *DocPositions) ReadPagePositions(pageIdx uint32) (uint32, base.DocPageLocations, error) {
+func (lDoc *DocPositions) ReadPagePositions(pageIdx uint32) (uint32, DocPageLocations, error) {
 	if lDoc.isMem() {
 		if pageIdx >= uint32(len(lDoc.pageNums)) {
-			return 0, base.DocPageLocations{}, fmt.Errorf("bad pageIdx=%d lDoc=%s", pageIdx, lDoc)
+			return 0, DocPageLocations{}, fmt.Errorf("bad pageIdx=%d lDoc=%s", pageIdx, lDoc)
 		}
 		common.Log.Debug("ReadPagePositions: pageIdx=%d pageNums=%d %+v", pageIdx, len(lDoc.pageNums),
 			lDoc.pageNums)
 		pageNum := lDoc.pageNums[pageIdx]
 		if pageNum == 0 {
-			return 0, base.DocPageLocations{}, fmt.Errorf("No pageNum. lDoc=%s", lDoc)
+			return 0, DocPageLocations{}, fmt.Errorf("No pageNum. lDoc=%s", lDoc)
 		}
 		dpl, ok := lDoc.pageDpl[pageNum]
 		if !ok {
@@ -323,12 +324,12 @@ func (lDoc *DocPositions) ReadPagePositions(pageIdx uint32) (uint32, base.DocPag
 			common.Log.Error("ReadPagePositions: pageNums=%d %+v", len(lDoc.pageNums), lDoc.pageNums)
 			keys := lDoc.pageKeys()
 			common.Log.Error("ReadPagePositions: keys=%d %+v", len(lDoc.pageDpl), keys)
-			return 0, base.DocPageLocations{}, errors.New("pageNum not in pageDpl")
+			return 0, DocPageLocations{}, errors.New("pageNum not in pageDpl")
 		}
 		if dpl.Len() == 0 {
 			common.Log.Error("ReadPagePositions: pageIdx=%d pageNum=%d lDoc=%s",
 				pageIdx, pageNum, lDoc)
-			return 0, base.DocPageLocations{}, errors.New("no locations")
+			return 0, DocPageLocations{}, errors.New("no locations")
 		}
 		return pageNum, dpl, nil
 	}
@@ -368,31 +369,31 @@ func (lDoc *DocPositions) pageKeys() []int {
 }
 
 func (lDoc *DocPositions) readPersistedPagePositions(pageIdx uint32) (
-	uint32, base.DocPageLocations, error) {
+	uint32, DocPageLocations, error) {
 
 	e := lDoc.spans[pageIdx]
 	if e.PageNum == 0 {
-		return 0, base.DocPageLocations{}, fmt.Errorf("Bad span pageIdx=%d e=%+v", pageIdx, e)
+		return 0, DocPageLocations{}, fmt.Errorf("Bad span pageIdx=%d e=%+v", pageIdx, e)
 	}
 
 	offset, err := lDoc.dataFile.Seek(int64(e.Offset), io.SeekStart)
 	if err != nil || uint32(offset) != e.Offset {
 		common.Log.Error("ReadPagePositions: Seek failed e=%+v offset=%d err=%v",
 			e, offset, err)
-		return 0, base.DocPageLocations{}, err
+		return 0, DocPageLocations{}, err
 	}
 	buf := make([]byte, e.Size)
 	if _, err := lDoc.dataFile.Read(buf); err != nil {
-		return 0, base.DocPageLocations{}, err
+		return 0, DocPageLocations{}, err
 	}
 	size := len(buf)
 	check := crc32.ChecksumIEEE(buf)
 	if check != e.Check {
 		common.Log.Error("ReadPagePositions: e=%+v size=%d check=%d", e, size, check)
-		return 0, base.DocPageLocations{}, errors.New("bad checksum")
+		return 0, DocPageLocations{}, errors.New("bad checksum")
 	}
-	dpl, err := serial.ReadDocPageLocations(buf)
-	return e.PageNum, dpl, err
+	locations, err := serial.ReadDocPageLocations(buf)
+	return e.PageNum, DocPageLocations{locations}, err
 }
 
 func (lDoc *DocPositions) GetTextPath(pageIdx uint32) string {

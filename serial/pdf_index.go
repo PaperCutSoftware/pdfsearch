@@ -7,7 +7,6 @@ import (
 	"fmt"
 
 	flatbuffers "github.com/google/flatbuffers/go"
-	"github.com/papercutsoftware/pdfsearch/base"
 	"github.com/papercutsoftware/pdfsearch/serial/locations"
 	"github.com/papercutsoftware/pdfsearch/serial/pdf_index"
 	"github.com/unidoc/unipdf/v3/common"
@@ -154,7 +153,7 @@ func getHashIndexPathDoc(loc *pdf_index.HashIndexPathDoc) (HashIndexPathDoc, err
 		pageTexts = append(pageTexts, text)
 	}
 
-	var pageDpls []base.DocPageLocations
+	var pageDpls [][]OffsetBBox
 	for i := 0; i < sdoc.PageDplLength(); i++ {
 		var sdpl locations.DocPageLocations
 		ok := sdoc.PageDpl(&sdpl, i)
@@ -196,9 +195,9 @@ func getHashIndexPathDoc(loc *pdf_index.HashIndexPathDoc) (HashIndexPathDoc, err
 // 	page_texts: [string];
 // }
 type DocPositions struct {
-	Path      string                  // Path of input PDF file.
-	DocIdx    uint64                  // Index into lState.fileList.
-	PageDpl   []base.DocPageLocations // PageDpl[i] <=> pageDpl[PageNums[i]]
+	Path      string         // Path of input PDF file.
+	DocIdx    uint64         // Index into lState.fileList.
+	PageDpl   [][]OffsetBBox // PageDpl[i] <=> pageDpl[PageNums[i]]
 	PageNums  []uint32
 	PageTexts []string
 }
@@ -256,7 +255,7 @@ func addDocPositions(b *flatbuffers.Builder, doc DocPositions) flatbuffers.UOffs
 
 	var dplOffsets []flatbuffers.UOffsetT
 	for i, dpl := range doc.PageDpl {
-		common.Log.Trace("addDocPositions: PageDpl[%d]=%d", i, dpl.Len())
+		common.Log.Trace("addDocPositions: PageDpl[%d]=%d", i, len(dpl))
 		dplOfs := addDocPageLocations(b, dpl)
 		dplOffsets = append(dplOffsets, dplOfs)
 	}
@@ -295,7 +294,7 @@ func getDocPositions(sdoc *pdf_index.DocPositions) (DocPositions, error) {
 		pageNums = append(pageNums, pageNum)
 	}
 
-	var pageDpl []base.DocPageLocations
+	var pageDpl [][]OffsetBBox
 	for i := 0; i < sdoc.PageDplLength(); i++ {
 		var sdpl locations.DocPageLocations
 		if !sdoc.PageDpl(&sdpl, i) {

@@ -6,13 +6,42 @@ import (
 	"errors"
 
 	flatbuffers "github.com/google/flatbuffers/go"
-	"github.com/papercutsoftware/pdfsearch/base"
 	"github.com/papercutsoftware/pdfsearch/serial/locations"
 	"github.com/unidoc/unipdf/v3/common"
 )
 
+// OffsetBBox describes the location of a text fragment on a PDF page.
+// The text of PDF pages is extracted and sent to bleve for indexing. BBox is used to map
+// the results of bleve searches back to PDF contents.
+// bleve searches returns offsets of the matches on the extracted text.
+// Members need to be public because they are accessedn by serial package.
+type OffsetBBox struct {
+	Offset             uint32  // Offset of the text fragment in extracted page text.
+	Llx, Lly, Urx, Ury float32 // Bounding box of fragment on PDF page.
+}
+
+// Equals returns true if `t` has the same text interval and bounding box as `u`.
+func (t OffsetBBox) Equals(u OffsetBBox) bool {
+	if t.Offset != u.Offset {
+		return false
+	}
+	if t.Llx != u.Llx {
+		return false
+	}
+	if t.Lly != u.Lly {
+		return false
+	}
+	if t.Urx != u.Urx {
+		return false
+	}
+	if t.Ury != u.Ury {
+		return false
+	}
+	return true
+}
+
 // MakeDocPageLocations returns a flatbuffers serialized byte array for `dpl`.
-func MakeDocPageLocations(b *flatbuffers.Builder, dpl base.DocPageLocations) []byte {
+func MakeDocPageLocations(b *flatbuffers.Builder, dpl []OffsetBBox) []byte {
 	b.Reset()
 
 	dplOfs := addDocPageLocations(b, dpl)
@@ -25,18 +54,18 @@ func MakeDocPageLocations(b *flatbuffers.Builder, dpl base.DocPageLocations) []b
 }
 
 // addDocPageLocations writes `dpl` to builder `b` and returns the root-table offset.
-func addDocPageLocations(b *flatbuffers.Builder, dpl base.DocPageLocations) flatbuffers.UOffsetT {
+func addDocPageLocations(b *flatbuffers.Builder, dpl []OffsetBBox) flatbuffers.UOffsetT {
 	var locOffsets []flatbuffers.UOffsetT
-	for _, loc := range dpl.Locations() {
+	for _, loc := range dpl {
 		locOfs := addTextLocation(b, loc)
 		locOffsets = append(locOffsets, locOfs)
 	}
-	locations.DocPageLocationsStartLocationsVector(b, dpl.Len())
+	locations.DocPageLocationsStartLocationsVector(b, len(dpl))
 	// Prepend TextLocations in reverse order.
 	for i := len(locOffsets) - 1; i >= 0; i-- {
 		b.PrependUOffsetT(locOffsets[i])
 	}
-	locationsOfs := b.EndVector(dpl.Len())
+	locationsOfs := b.EndVector(len(dpl))
 
 	// Write the DocPageLocations object.
 	locations.DocPageLocationsStart(b)
@@ -46,32 +75,32 @@ func addDocPageLocations(b *flatbuffers.Builder, dpl base.DocPageLocations) flat
 	return dplOfs
 }
 
-func ReadDocPageLocations(buf []byte) (base.DocPageLocations, error) {
+func ReadDocPageLocations(buf []byte) ([]OffsetBBox, error) {
 	// Initialize a DocPageLocations reader from `buf`.
 	dpl := locations.GetRootAsDocPageLocations(buf, 0)
 	return getDocPageLocations(dpl)
 }
 
-func getDocPageLocations(sdpl *locations.DocPageLocations) (base.DocPageLocations, error) {
+func getDocPageLocations(sdpl *locations.DocPageLocations) ([]OffsetBBox, error) {
 
 	// Vectors, such as `Locations`, have a method suffixed with 'Length' that can be used
 	// to query the length of the vector. You can index the vector by passing an index value
 	// into the accessor.
-	var dpl base.DocPageLocations
+	var dpl []OffsetBBox
 	for i := 0; i < sdpl.LocationsLength(); i++ {
 		var sloc locations.TextLocation
 		ok := sdpl.Locations(&sloc, i)
 		if !ok {
-			return base.DocPageLocations{}, errors.New("bad TextLocation")
+			return []OffsetBBox{}, errors.New("bad TextLocation")
 		}
-		dpl.AppendTextLocation(getTextLocation(&sloc))
+		dpl = append(dpl, getTextLocation(&sloc))
 	}
-	common.Log.Debug("ReadDocPageLocations: dpl=%s", dpl)
+	common.Log.Debug("ReadDocPageLocations: dpl=%d", len(dpl))
 	return dpl, nil
 }
 
 // MakeTextLocation returns a flatbuffers serialized byte array for `loc`.
-func MakeTextLocation(b *flatbuffers.Builder, loc base.TextLocation) []byte {
+func MakeTextLocation(b *flatbuffers.Builder, loc OffsetBBox) []byte {
 	// Re-use the already-allocated Builder.
 	b.Reset()
 
@@ -86,10 +115,10 @@ func MakeTextLocation(b *flatbuffers.Builder, loc base.TextLocation) []byte {
 }
 
 // addTextLocation writes `loc` to builder `b` and returns the root-table offset.
-func addTextLocation(b *flatbuffers.Builder, loc base.TextLocation) flatbuffers.UOffsetT {
+func addTextLocation(b *flatbuffers.Builder, loc OffsetBBox) flatbuffers.UOffsetT {
 	// Write the TextLocation object.
 	locations.TextLocationStart(b)
-	locations.TextLocationAddOffset(b, loc.Start)
+	locations.TextLocationAddOffset(b, loc.Offset)
 	locations.TextLocationAddLlx(b, loc.Llx)
 	locations.TextLocationAddLly(b, loc.Lly)
 	locations.TextLocationAddUrx(b, loc.Urx)
@@ -97,17 +126,16 @@ func addTextLocation(b *flatbuffers.Builder, loc base.TextLocation) flatbuffers.
 	return locations.TextLocationEnd(b)
 }
 
-func ReadTextLocation(buf []byte) base.TextLocation {
+func ReadTextLocation(buf []byte) OffsetBBox {
 	// Initialize a TextLocation reader from `buf`.
 	loc := locations.GetRootAsTextLocation(buf, 0)
 	return getTextLocation(loc)
 }
 
-func getTextLocation(loc *locations.TextLocation) base.TextLocation {
+func getTextLocation(loc *locations.TextLocation) OffsetBBox {
 	// Copy the TextLocation's fields (since these are numbers).
-	return base.TextLocation{
+	return OffsetBBox{
 		loc.Offset(),
-		0,
 		loc.Llx(),
 		loc.Lly(),
 		loc.Urx(),

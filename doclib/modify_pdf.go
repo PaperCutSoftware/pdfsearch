@@ -45,8 +45,8 @@ type pageContent struct {
 // 	pages    []*pdf.PdfPage // pages
 // }
 
-func (l *ExtractList) AddRect(inPath string, pageNum uint32, llx, lly, urx, ury float32) {
-	common.Log.Debug("AddRect %q %3d {%.1f %.1f %.1f %.1f}", filepath.Base(inPath), pageNum, llx, lly, urx, ury)
+func (l *ExtractList) AddRect(inPath string, pageNum uint32, r pdf.PdfRectangle) {
+	common.Log.Debug("AddRect %q %3d %v", filepath.Base(inPath), pageNum,r)
 	pathPage := fmt.Sprintf("%s.%d", inPath, pageNum)
 	if !l.sourceSet[pathPage] {
 		if len(l.sourceSet) >= l.maxPages {
@@ -67,7 +67,6 @@ func (l *ExtractList) AddRect(inPath string, pageNum uint32, llx, lly, urx, ury 
 	if len(pageContent.rects) >= 3 {
 		return // !@#$
 	}
-	r := pdf.PdfRectangle{float64(llx), float64(lly), float64(urx), float64(ury)}
 	pageContent.rects = append(pageContent.rects, r)
 	if pageNum == 0 {
 		common.Log.Error("inPath=%q pageNum=%d", inPath, pageNum)

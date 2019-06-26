@@ -17,7 +17,6 @@ import (
 	"time"
 
 	"github.com/blevesearch/bleve"
-	"github.com/papercutsoftware/pdfsearch/base"
 	"github.com/papercutsoftware/pdfsearch/serial"
 	"github.com/unidoc/unipdf/v3/common"
 	pdf "github.com/unidoc/unipdf/v3/model"
@@ -251,9 +250,9 @@ func PositionsStateFromHIPDs(hipds []serial.HashIndexPathDoc) (PositionsState, e
 		common.Log.Debug("PositionsStateFromHIPDs: sdoc.PageNums=%d sdoc.PageDpl=%d",
 			len(sdoc.PageNums), len(sdoc.PageDpl))
 		// sdoc.PageDpl is a slice with entries corresponding to page numbers in sdoc.PageNums
-		pageDpl := map[uint32]base.DocPageLocations{}
+		pageDpl := map[uint32]DocPageLocations{}
 		for i, pageNum := range sdoc.PageNums {
-			pageDpl[pageNum] = sdoc.PageDpl[i]
+			pageDpl[pageNum] = DocPageLocations{sdoc.PageDpl[i]}
 		}
 		lDoc := DocPositions{
 			inPath:  sdoc.Path,   // Path of input PDF file.
@@ -313,9 +312,9 @@ func (l PositionsState) ToHIPDs() ([]serial.HashIndexPathDoc, error) {
 		}
 		// sdoc.PageDpl is a slice with entries corresponding to page numbers in sdoc.PageNums
 		common.Log.Trace("doc.pageDpl=%d", len(doc.pageDpl))
-		pageDpl := make([]base.DocPageLocations, len(doc.pageDpl))
+		pageDpl := make([][]serial.OffsetBBox, len(doc.pageDpl))
 		for i, pageNum := range doc.pageNums {
-			pageDpl[i] = doc.pageDpl[pageNum]
+			pageDpl[i] = doc.pageDpl[pageNum].locations
 		}
 		sdoc := serial.DocPositions{
 			Path:      doc.inPath,
@@ -453,7 +452,7 @@ func (lState *PositionsState) doExtract(fd fileDesc, rs io.ReadSeeker, lDoc *Doc
 			return nil
 		}
 
-		dpl := base.DplFromExtractorLocations(locations)
+		dpl := DplFromExtractorLocations(locations)
 		pageIdx, err := lDoc.AddDocPage(pageNum, dpl, text)
 		if err != nil {
 			return err
@@ -588,11 +587,11 @@ func (lState *PositionsState) ReadDocPageText(docIdx uint64, pageIdx uint32) (st
 
 // ReadDocPagePositions is inefficient. A DocPositions (a file) is opened and closed to read a page.
 func (lState *PositionsState) ReadDocPagePositions(docIdx uint64, pageIdx uint32) (
-	string, uint32, base.DocPageLocations, error) {
+	string, uint32, DocPageLocations, error) {
 
 	lDoc, err := lState.OpenPositionsDoc(docIdx)
 	if err != nil {
-		return "", 0, base.DocPageLocations{}, err
+		return "", 0, DocPageLocations{}, err
 	}
 	defer lDoc.Close()
 	pageNum, dpl, err := lDoc.ReadPagePositions(pageIdx)
@@ -668,7 +667,7 @@ func (lState *PositionsState) baseFields(docIdx uint64) (*DocPositions, error) {
 		lState:  lState,
 		inPath:  inPath,
 		docIdx:  docIdx,
-		pageDpl: map[uint32]base.DocPageLocations{},
+		pageDpl: map[uint32]DocPageLocations{},
 	}
 
 	if lState.isMem() {

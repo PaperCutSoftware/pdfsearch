@@ -193,9 +193,8 @@ func MarkupPdfResults(results doclib.PdfMatchSet, outPath string) error {
 		if dpl.Len() == 0 {
 			return errors.New("no Locations")
 		}
-		loc := dpl.GetPosition(m.Start, m.End)
-		llx, lly, urx, ury := loc.Llx, loc.Lly, loc.Urx, loc.Ury
-		extractList.AddRect(inPath, pageNum, llx, lly, urx, ury)
+		bbox := dpl.GetBBox(m.Start, m.End)
+		extractList.AddRect(inPath, pageNum, bbox)
 	}
 	return extractList.SaveOutputPdf(outPath)
 }
