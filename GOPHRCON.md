@@ -1,4 +1,4 @@
-Elevator Pitch (<= 300 characters)
+ELEVATOR PITCH (<= 300 characters)
 ==============
 Many modern software product developers work close to the top of a powerful open source
 software stack and focus on their customer problems.
@@ -6,7 +6,7 @@ software stack and focus on their customer problems.
 This talk is about how I worked further down the Go software stack to write a PDF Full Text
 Search Engine and provided business value in unexpected ways.
 
-Talk Proposal
+TALK PROPOSAL
 =============
 PDF Full Text Search in Pure Go. What? Why? How?
 ------------------------------------------------
@@ -46,30 +46,53 @@ Business Value
   2-3 developer weeks spent writing the Go library.
 * Was used in 3 apps.
   1) Search over a user’s files stored locally on disk. Private
-  2) Search over a shared index stored on a bucket. The app writer needed the run the indexing code and
+  2) Check for terms in a PDF as it arrives. (Short-lived in-memory index.)
+  3) Search over a shared index stored on a bucket. The app writer needed the run the indexing code and
    search code one Google node and to store the index as a flat memory buffer.
-  3) Check for terms in a PDF as it arrives. (Short-lived in-memory index.)
-* In the talk we will show how we solved these problems by calling Go code.
+ * In the talk we will show how we solved these problems by calling Go code.
 
 
 Development possibilities of idiomatic Go implementations
 ----------------------------------------------------------------------
-* Runs fast. This is a Go app that does nothing but index and search PDFs. It is a tiny fraction of the code in Adobe Reader. Therefore it can run fast
+* Runs fast. This is a Go app that does nothing but index and search PDFs. It is a tiny fraction of the code in Adobe Reader. Therefore it can run fast.
 * Can be fixed fast. There are heuristics in text extraction. These are much easier to tweek in idiomatic Go than in mature Java code.
 * Write domain specific searches. E.g. Extract tables from the PDFs and create indexes over tables for scientific and financial work.
 
-
 NOTES FOR REVIEWERS
 ===================
-The code that will describe in the talk, [PDF Full Text Search Engine](https://github.com/PaperCutSoftware/pdfsearch
-), is referenced in the proposal above.
+The code that I will describe in the talk, [PDF Full Text Search Engine](https://github.com/PaperCutSoftware/pdfsearch
+), is referenced in the proposal above. This is currently waiting on [UniDoc](https://unidoc.io/)
+to merge a [pull request](https://github.com/unidoc/unipdf/pull/75). We expect this to be completed
+before the end of June.
 
 This code is used in [PaperCut](https://www.papercut.com/) products. The PaperCut commercial code
 has a few modifications such as licence keys and other private data. Otherwise it is the same as
 the open source code.
 
 The PaperCut code runs on Windows, Mac and Unix on customer premises and on Google Cloud for
-PaperCut's web based products
+PaperCut's web based products.
+
+The open source code, as released this week, is messy and reflects the circumstances under which it
+was created
+1) I hacked together local on-disk search as a proposal for a new feature.
+2) A product group requested in-memory search, so I hacked this on top the hacks in 1) to get this working.
+3) A product group with a cloud product needed serialization of indexes to/from `[]byte` and
+   `io.ReadSeeker` readers for PDFs right away and I hacked this together on top of the growing mess.
+Everything worked because
+1) Most of the code comes from the 2 high-quality libraries used,
+2) The 2 libraries are linked by a simple concept, a mapping between PDF text bounding boxes and
+   offsets in the text extacted from the libraries
+3) A lot of tests.
+
+PaperCut decided to open source the code so that our software product teams can work at the top of
+the software stack and use a simple high-value open source library for functionality. (This means
+that I will spend some time cleaning up the code over the next few weeks so product developers can
+use it the way I used Go libraries it is based on )
+
+DISCLOSURE: I am a UniDoc contributor and I wrote much of UniDoc's text extraction code. PaperCut
+uses UniDoc text extraction code to provide competitive advantage, in ways I cannot share here.
+These uses are specific to the market PaperCut sells to and are not widely useful like PDF full
+text search.
 
 
 BIO
@@ -84,4 +107,4 @@ recently written in Go for PaperCut are
 * A printing back-end and IPP stack for PaperCut Mobility
 * PDF grayscale conversion
 * PDF watermarking
-* The 3 apps mentioned in the talk
+
