@@ -13,15 +13,17 @@ import (
 	pdf "github.com/unidoc/unipdf/v3/model"
 )
 
-// DocPageLocations stores the locations of text fragments on a page.
-// The search index includes a binary copy of DocPageLocations, so our goal is to make
-// DocPageLocations compact.
-type DocPageLocations struct {
+// PagePositions is used to the link per-document data in a bleve index to the PDF file that the
+// per-document data was extracted from.
+// There is one PagePositions per page.
+// PagePositions stores the locations of text fragments on a page. The search index includes a
+// binary copy of PagePositions, so our goal is to make PagePositions compact.
+type PagePositions struct {
 	locations []serial.OffsetBBox
 }
 
 // Equals returns true if `dpl` contains the same information as `epl`.
-func (dpl DocPageLocations) Equals(epl DocPageLocations) bool {
+func (dpl PagePositions) Equals(epl PagePositions) bool {
 	if len(dpl.locations) != len(epl.locations) {
 		return false
 	}
@@ -34,29 +36,21 @@ func (dpl DocPageLocations) Equals(epl DocPageLocations) bool {
 	return true
 }
 
-func (dpl DocPageLocations) String() string {
-	return fmt.Sprintf("{DocPageLocations: %d}", len(dpl.locations))
+// String returns a string describing PagePositions `dpl`.
+func (dpl PagePositions) String() string {
+	return fmt.Sprintf("{PagePositions: %d}", len(dpl.locations))
 }
 
-func (dpl DocPageLocations) Len() int {
-	return len(dpl.locations)
+// Empty return true if `dpl` has no entries.
+func (dpl PagePositions) Empty() bool {
+	return len(dpl.locations) == 0
 }
 
-func (dpl DocPageLocations) Locations() []serial.OffsetBBox {
-	return dpl.locations
-}
-
-func (dpl *DocPageLocations) AppendTextLocation(loc serial.OffsetBBox) {
-	dpl.locations = append(dpl.locations, loc)
-}
-
-
-
-// DplFromExtractorLocations converts []extractor.TextLocation `locations` to a more compact
-// DocPageLocations.
-// We do this because DocPageLocations is stored in our index.
-func DplFromExtractorLocations(locations []extractor.TextLocation) DocPageLocations {
-	var dpl DocPageLocations
+// PagePositionsFromLocations converts []extractor.TextLocation `locations` to a more compact
+// PagePositions.
+// We do this because PagePositions is stored in our index which we want to be small.
+func PagePositionsFromLocations(locations []extractor.TextLocation) PagePositions {
+	var dpl PagePositions
 	for _, uloc := range locations {
 		loc := fromExtractorLocation(uloc)
 		dpl.locations = append(dpl.locations, loc)
@@ -64,7 +58,7 @@ func DplFromExtractorLocations(locations []extractor.TextLocation) DocPageLocati
 	return dpl
 }
 
-// fromExtractorLocation converts extractor.TextLocation `loc` to a more compact serial.OffsetBBox.
+// fromExtractorLocation converts extractor.TextLocation `uloc` to a more compact serial.OffsetBBox.
 func fromExtractorLocation(uloc extractor.TextLocation) serial.OffsetBBox {
 	b := uloc.BBox
 	return serial.OffsetBBox{
@@ -76,12 +70,12 @@ func fromExtractorLocation(uloc extractor.TextLocation) serial.OffsetBBox {
 	}
 }
 
-// GetBBox returns a rectangle that bounds the text with offsets
+// BBox returns a rectangle that bounds the text with offsets
 // ofs: `start` <= ofs <= `end` on the PDF page indexed by `dpl`.
 // Caller must check that dpl.locations is not empty.
-func (dpl DocPageLocations) GetBBox(start, end uint32) pdf.PdfRectangle {
-	i0, ok0 := dpl.getPositionIndex(end)
-	i1, ok1 := dpl.getPositionIndex(start)
+func (dpl PagePositions) BBox(start, end uint32) pdf.PdfRectangle {
+	i0, ok0 := dpl.positionIndex(end)
+	i1, ok1 := dpl.positionIndex(start)
 	if !(ok0 && ok1) {
 		return pdf.PdfRectangle{}
 	}
@@ -94,19 +88,19 @@ func (dpl DocPageLocations) GetBBox(start, end uint32) pdf.PdfRectangle {
 	}
 }
 
-// getPositionIndex returns the index of the element of dpl.locations that spans `offset`
+// positionIndex returns the index of the element of dpl.locations that spans `offset`
 // (i.e  idx: dpl.locations[idx] <= offset < dpl.locations[idx+1])
 // Caller must check that dpl.locations is not empty.
-func (dpl DocPageLocations) getPositionIndex(offset uint32) (int, bool) {
+func (dpl PagePositions) positionIndex(offset uint32) (int, bool) {
 	positions := dpl.locations
 	if len(positions) == 0 {
-		common.Log.Error("getPositionIndex: No positions")
+		common.Log.Error("positionIndex: No positions")
 		panic("no positions")
 	}
 	i := sort.Search(len(positions), func(i int) bool { return positions[i].Offset >= offset })
 	ok := 0 <= i && i < len(positions)
 	if !ok {
-		common.Log.Error("getPositionIndex: offset=%d i=%d len=%d %v==%v", offset, i, len(positions),
+		common.Log.Error("positionIndex: offset=%d i=%d len=%d %v==%v", offset, i, len(positions),
 			positions[0], positions[len(positions)-1])
 	}
 	return i, ok

@@ -155,7 +155,7 @@ func getHashIndexPathDoc(loc *pdf_index.HashIndexPathDoc) (HashIndexPathDoc, err
 
 	var pageDpls [][]OffsetBBox
 	for i := 0; i < sdoc.PageDplLength(); i++ {
-		var sdpl locations.DocPageLocations
+		var sdpl locations.PagePositions
 		ok := sdoc.PageDpl(&sdpl, i)
 		if !ok {
 			common.Log.Error("getHashIndexPathDoc: No PageDpl(%d)", i)
@@ -190,7 +190,7 @@ func getHashIndexPathDoc(loc *pdf_index.HashIndexPathDoc) (HashIndexPathDoc, err
 // table DocPositions {
 // 	path:  string;
 // 	doc_idx:  uint64;
-// 	page_dpl: [locations.DocPageLocations];
+// 	page_dpl: [locations.PagePositions];
 // 	page_nums:  [uint32];
 // 	page_texts: [string];
 // }
@@ -296,7 +296,7 @@ func getDocPositions(sdoc *pdf_index.DocPositions) (DocPositions, error) {
 
 	var pageDpl [][]OffsetBBox
 	for i := 0; i < sdoc.PageDplLength(); i++ {
-		var sdpl locations.DocPageLocations
+		var sdpl locations.PagePositions
 		if !sdoc.PageDpl(&sdpl, i) {
 			common.Log.Error("PageDpl(%d) does not exist", i)
 			return DocPositions{}, errors.New("no PageDpl entry")

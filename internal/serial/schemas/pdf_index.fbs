@@ -5,8 +5,8 @@ namespace pdf_index;
 // DocPositions tracks the data that is used to index a PDF file.
 table DocPositions {
 	path:  string;                          // Path of input PDF file.
-	doc_idx:  uint64;                       // Index into lState.fileList.
-	page_dpl: [locations.DocPageLocations]; // page_dpl[i] is DocPageLocations for page_nums[i].
+	doc_idx:  uint64;                       // Index into blevePdf.fileList.
+	page_dpl: [locations.PagePositions]; // page_dpl[i] is PagePositions for page_nums[i].
 	page_nums:  [uint32];                   // page_nums[i] is the page number of the ith page.
 	page_texts: [string];                   // page_dpl[i] is the extracted tex for page_nums[i].
 }

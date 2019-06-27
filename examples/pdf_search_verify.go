@@ -13,7 +13,6 @@ import (
 
 	pdfsearch "github.com/papercutsoftware/pdfsearch"
 	"github.com/papercutsoftware/pdfsearch/examples/cmd_utils"
-	"github.com/papercutsoftware/pdfsearch/internal/doclib"
 )
 
 // TODO: Implement -m indexing. Needs bleve PR.
@@ -123,14 +122,14 @@ func main() {
 	if groupSize > 0 {
 		if compare {
 			runAllModesGroups(pathList, term, persistDir, nameOnly,
-				useReaderSeeker, maxResults, outPath, groupSize, compareDisk)
+				maxResults, outPath, groupSize, compareDisk)
 		} else {
-			runIndexSearchShowGroups(pathList, term, persistDir, serialize, persist, nameOnly, useReaderSeeker,
+			runIndexSearchShowGroups(pathList, term, persistDir, serialize, persist,
 				maxResults, outPath, groupSize)
 		}
 	} else {
 		if err := runIndexSearchShow(pathList, term, persistDir, serialize, persist, reuse, nameOnly,
-			useReaderSeeker, maxResults, outPath); err != nil {
+			maxResults, outPath); err != nil {
 			panic(err)
 		}
 	}
@@ -170,10 +169,9 @@ func runIndexSearchShow(pathList []string, term, persistDir string, serialize, p
 //  `persist`: Persist pdfsearch.PdfIndex to disk.
 //  `reuse`: Don't create a pdfsearch.PdfIndex. Reuse one that was previously persisted to disk.
 //  `nameOnly`: Show matching file names only.
-//  `useReaderSeeker`: Exercise the io.ReaderSeeker API.
 //  `maxResults`: Max number of search results to return.
-func runIndexSearchShowGroups(pathList []string, term, persistDir string, serialize, persist, nameOnly,
-	useReaderSeeker bool, maxResults int, outPath string, groupSize int) {
+func runIndexSearchShowGroups(pathList []string, term, persistDir string, serialize, persist bool,
+	maxResults int, outPath string, groupSize int) {
 
 	for i0 := 0; i0 <= len(pathList); i0 += groupSize {
 		i1 := i0 + groupSize
@@ -183,7 +181,7 @@ func runIndexSearchShowGroups(pathList []string, term, persistDir string, serial
 		paths := pathList[i0:i1]
 		fmt.Fprintln(os.Stderr, "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
 		fmt.Fprintf(os.Stderr, "%d-%d of %d: %q\n", i0, i1, len(pathList), paths)
-		err := runIndexSearchShow(paths, term, persistDir, serialize, persist, false, nameOnly, useReaderSeeker,
+		err := runIndexSearchShow(paths, term, persistDir, serialize, persist, false, false,
 			maxResults, outPath)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "%d-%d of %d: err=%v\n", i0, i1, len(pathList), err)
@@ -199,12 +197,11 @@ func runIndexSearchShowGroups(pathList []string, term, persistDir string, serial
 //
 //  `persistDir`: The directory the pdfsearch.PdfIndex is saved in if `persist` is true.
 //  `nameOnly`: Show matching file names only.
-//  `useReaderSeeker`: Exercise the io.ReaderSeeker API.
 //  `maxResults`: Max number of search results to return.
 //  `outPath`: File name to save marked-up PDF to.
 //  `groupSize`: pathList is split into groups of this size and the tests are done on each group.
-func runAllModesGroups(pathList []string, term, persistDir string, nameOnly,
-	useReaderSeeker bool, maxResults int, outPath string, groupSize int, testDisk bool) {
+func runAllModesGroups(pathList []string, term, persistDir string, nameOnly bool, maxResults int,
+	outPath string, groupSize int, testDisk bool) {
 
 	fmt.Fprintf(os.Stderr, "groupSize=%d\n", groupSize)
 
@@ -216,7 +213,7 @@ func runAllModesGroups(pathList []string, term, persistDir string, nameOnly,
 		paths := pathList[i0:i1]
 		fmt.Fprintln(os.Stderr, "~~~~~~~~~~~~~~~~~~~~~^^~~~~~~~~~~~~~~~~~~~~~~~~~~~")
 		fmt.Fprintf(os.Stderr, "### %d-%d of %d: %q\n", i0, i1, len(pathList), paths)
-		err := runAllModes(paths, term, persistDir, nameOnly, useReaderSeeker, maxResults, outPath, testDisk)
+		err := runAllModes(paths, term, persistDir, nameOnly, maxResults, outPath, testDisk)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "%d-%d of %d: err=%v\n", i0, i1, len(pathList), err)
 		}
@@ -230,31 +227,30 @@ func runAllModesGroups(pathList []string, term, persistDir string, nameOnly,
 // compared to the in-memory index and results.
 //  `persistDir`: The directory the pdfsearch.PdfIndex is saved in if `persist` is true.
 //  `nameOnly`: Show matching file names only.
-//  `useReaderSeeker`: Exercise the io.ReaderSeeker API.
 //  `maxResults`: Max number of search results to return.
 //  `outPath`: File name to save marked-up PDF to.
-func runAllModes(pathList []string, term, persistDir string, nameOnly,
-	useReaderSeeker bool, maxResults int, outPath string, testDisk bool) error {
+func runAllModes(pathList []string, term, persistDir string, nameOnly bool, maxResults int,
+	outPath string, testDisk bool) error {
 
 	var pdfIndexDisk pdfsearch.PdfIndex
-	var resultsDisk doclib.PdfMatchSet
+	var resultsDisk pdfsearch.PdfMatchSet
 	var dtDisk, dtIndexDisk time.Duration
 
 	pdfIndex0, results0, dt0, dtIndex0, err := runIndexSearch(pathList, term, persistDir,
-		false, false, false, useReaderSeeker, maxResults)
+		false, false, false, maxResults)
 	if err != nil {
 		panic(err)
 		return err
 	}
 	pdfIndexMem, resultsMem, dtMem, dtIndexMem, err := runIndexSearch(pathList, term, persistDir,
-		true, false, false, useReaderSeeker, maxResults)
+		true, false, false, maxResults)
 	if err != nil {
 		panic(err)
 		return err
 	}
 	if testDisk {
 		pdfIndexDisk, resultsDisk, dtDisk, dtIndexDisk, err = runIndexSearch(pathList, term, persistDir,
-			false, true, false, useReaderSeeker, maxResults)
+			false, true, false, maxResults)
 		if err != nil {
 			panic(err)
 			return err
@@ -383,7 +379,7 @@ func showResults(pathList []string, pdfIndex pdfsearch.PdfIndex, results pdfsear
 	} else {
 
 		fmt.Println("=================+++=====================")
-		fmt.Printf("%s\n", results)
+		fmt.Printf("%+v\n", results)
 		fmt.Println("=================xxx=====================")
 	}
 

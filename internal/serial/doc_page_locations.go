@@ -46,7 +46,7 @@ func MakeDocPageLocations(b *flatbuffers.Builder, dpl []OffsetBBox) []byte {
 
 	dplOfs := addDocPageLocations(b, dpl)
 
-	// Finish the write operations by our DocPageLocations the root object.
+	// Finish the write operations by our PagePositions the root object.
 	b.Finish(dplOfs)
 
 	// return the byte slice containing encoded data:
@@ -67,7 +67,7 @@ func addDocPageLocations(b *flatbuffers.Builder, dpl []OffsetBBox) flatbuffers.U
 	}
 	locationsOfs := b.EndVector(len(dpl))
 
-	// Write the DocPageLocations object.
+	// Write the PagePositions object.
 	locations.DocPageLocationsStart(b)
 	locations.DocPageLocationsAddLocations(b, locationsOfs)
 	dplOfs := locations.DocPageLocationsEnd(b)
@@ -76,12 +76,12 @@ func addDocPageLocations(b *flatbuffers.Builder, dpl []OffsetBBox) flatbuffers.U
 }
 
 func ReadDocPageLocations(buf []byte) ([]OffsetBBox, error) {
-	// Initialize a DocPageLocations reader from `buf`.
+	// Initialize a PagePositions reader from `buf`.
 	dpl := locations.GetRootAsDocPageLocations(buf, 0)
 	return getDocPageLocations(dpl)
 }
 
-func getDocPageLocations(sdpl *locations.DocPageLocations) ([]OffsetBBox, error) {
+func getDocPageLocations(sdpl *locations.PagePositions) ([]OffsetBBox, error) {
 
 	// Vectors, such as `Locations`, have a method suffixed with 'Length' that can be used
 	// to query the length of the vector. You can index the vector by passing an index value

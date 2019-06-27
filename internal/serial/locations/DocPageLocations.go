@@ -6,27 +6,27 @@ import (
 	flatbuffers "github.com/google/flatbuffers/go"
 )
 
-type DocPageLocations struct {
+type PagePositions struct {
 	_tab flatbuffers.Table
 }
 
-func GetRootAsDocPageLocations(buf []byte, offset flatbuffers.UOffsetT) *DocPageLocations {
+func GetRootAsDocPageLocations(buf []byte, offset flatbuffers.UOffsetT) *PagePositions {
 	n := flatbuffers.GetUOffsetT(buf[offset:])
-	x := &DocPageLocations{}
+	x := &PagePositions{}
 	x.Init(buf, n+offset)
 	return x
 }
 
-func (rcv *DocPageLocations) Init(buf []byte, i flatbuffers.UOffsetT) {
+func (rcv *PagePositions) Init(buf []byte, i flatbuffers.UOffsetT) {
 	rcv._tab.Bytes = buf
 	rcv._tab.Pos = i
 }
 
-func (rcv *DocPageLocations) Table() flatbuffers.Table {
+func (rcv *PagePositions) Table() flatbuffers.Table {
 	return rcv._tab
 }
 
-func (rcv *DocPageLocations) Locations(obj *TextLocation, j int) bool {
+func (rcv *PagePositions) Locations(obj *TextLocation, j int) bool {
 	o := flatbuffers.UOffsetT(rcv._tab.Offset(4))
 	if o != 0 {
 		x := rcv._tab.Vector(o)
@@ -38,7 +38,7 @@ func (rcv *DocPageLocations) Locations(obj *TextLocation, j int) bool {
 	return false
 }
 
-func (rcv *DocPageLocations) LocationsLength() int {
+func (rcv *PagePositions) LocationsLength() int {
 	o := flatbuffers.UOffsetT(rcv._tab.Offset(4))
 	if o != 0 {
 		return rcv._tab.VectorLen(o)

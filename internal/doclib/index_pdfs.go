@@ -7,7 +7,6 @@
 package doclib
 
 import (
-	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -17,8 +16,6 @@ import (
 	"github.com/blevesearch/bleve"
 	"github.com/unidoc/unipdf/v3/common"
 )
-
-var ErrRange = errors.New("out of range")
 
 // IndexPdfFilesUsingReaders creates a bleve+BlevePdf index for `pathList`.
 // If `persistDir` is not empty, the index is written to this directory.
@@ -64,8 +61,8 @@ func IndexPdfFilesOrReaders(pathList []string, rsList []io.ReadSeeker, persistDi
 	if err != nil {
 		return nil, nil, 0, dtPdf, dtBleve, fmt.Errorf("Could not create positions store %q. err=%v", persistDir, err)
 	}
-	defer blevePdf.Flush()
-	blevePdf.Check()
+	defer blevePdf.flush()
+	defer blevePdf.check()
 
 	var index bleve.Index
 	if len(persistDir) == 0 {
@@ -93,10 +90,10 @@ func IndexPdfFilesOrReaders(pathList []string, rsList []io.ReadSeeker, persistDi
 		if report != nil {
 			report(fmt.Sprintf("%3d of %d: %q%s", i+1, len(pathList), inPath, readerOnly))
 		}
-		blevePdf.Check()
+		blevePdf.check()
 		var err error
 		if useReaders {
-			blevePdf.Check()
+			blevePdf.check()
 			rs := rsList[i]
 			dtP, dtB, err = blevePdf.indexDocPagesLocReader(index, inPath, rs)
 			dtPdf += dtP
@@ -108,11 +105,11 @@ func IndexPdfFilesOrReaders(pathList []string, rsList []io.ReadSeeker, persistDi
 			dtPdf += dtP
 			dtBleve += dtB
 		}
-		blevePdf.Check()
+		blevePdf.check()
 		if err != nil {
 			return nil, nil, 0, dtPdf, dtBleve, fmt.Errorf("Could not index file %q", inPath)
 		}
-		blevePdf.Check()
+		blevePdf.check()
 		docCount, err := index.DocCount()
 		if err != nil {
 			return nil, nil, 0, dtPdf, dtBleve, err

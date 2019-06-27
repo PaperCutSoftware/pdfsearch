@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+
 	"github.com/papercutsoftware/pdfsearch/internal/utils"
 	"github.com/unidoc/unipdf/v3/common"
 	"github.com/unidoc/unipdf/v3/common/license"
@@ -72,16 +73,16 @@ func PdfOpenFile(inPath string, lazy bool) (*pdf.PdfReader, error) {
 	return PdfOpenReader(f, lazy)
 }
 
-// PdfOpenFile opens the PDF file accessed by `f` and attempts to handle null encryption schemes.
+// PdfOpenReader opens the PDF file accessed by `rs` and attempts to handle null encryption schemes.
 // If `lazy` is true, a lazy PDF reader is opened.
-func PdfOpenReader(f io.ReadSeeker, lazy bool) (*pdf.PdfReader, error) {
+func PdfOpenReader(rs io.ReadSeeker, lazy bool) (*pdf.PdfReader, error) {
 
 	var pdfReader *pdf.PdfReader
 	var err error
 	if lazy {
-		pdfReader, err = pdf.NewPdfReaderLazy(f)
+		pdfReader, err = pdf.NewPdfReaderLazy(rs)
 	} else {
-		pdfReader, err = pdf.NewPdfReader(f)
+		pdfReader, err = pdf.NewPdfReader(rs)
 	}
 	if err != nil {
 		return nil, err
@@ -233,7 +234,7 @@ func CreatePDFPageProcessorFile(inPath string) (*PDFPageProcessor, error) {
 	return p, err
 }
 
-// CreatePDFPageProcessorFile creates a  PDFPageProcessor for reading the PDF file referenced by
+// CreatePDFPageProcessorReader creates a  PDFPageProcessor for reading the PDF file referenced by
 // `rs`.
 // `inPath` is provided for logging only but it is expected to be the path referenced by `rs`.
 func CreatePDFPageProcessorReader(inPath string, rs io.ReadSeeker) (*PDFPageProcessor, error) {
@@ -296,7 +297,7 @@ func ProcessPDFPagesFile(inPath string, processPage func(pageNum uint32, page *p
 	return p.Process(processPage)
 }
 
-// ProcessPDFPagesFile runs `processPage` on every page in PDF file opened in `rs`.
+// ProcessPDFPagesReader runs `processPage` on every page in PDF file opened in `rs`.
 // It is a convenience function.
 func ProcessPDFPagesReader(inPath string, rs io.ReadSeeker,
 	processPage func(pageNum uint32, page *pdf.PdfPage) error) error {

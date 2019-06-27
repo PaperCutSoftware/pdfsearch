@@ -8,8 +8,8 @@ table TextLocation {
 	ury: float32;
 }
 
-table DocPageLocations  {
+table PagePositions  {
 	locations: [TextLocation];
 }
 
-root_type DocPageLocations;
+root_type PagePositions;

@@ -100,19 +100,20 @@ func main() {
 	// Run the tests.
 	if err := runIndexSearchShow(pathList, term, persistDir, serialize, persist, reuse, nameOnly,
 		maxResults, outPath); err != nil {
-		panic(err)
+		fmt.Fprintf(os.Stderr, "runIndexSearchShow failed. err-%v\n", err)
+		os.Exit(1)
 	}
 }
 
 // runIndexSearchShow creates a pdfsearch.PdfIndex for the PDF files in `pathList`, searches for
-//`term` in this index, and shows the results.
+// `term` in this index, and shows the results.
 // It also creates a marked-up PDF containing the original PDF pages with the matched terms marked
 //  and saves it to `outPath`.
 // This is the main test function. The runIndexSearch() function is calls shows you how to create an
-// index annd search it.
+//  index annd search it.
 //
 //  `persistDir`: The directory the pdfsearch.PdfIndex is saved in if `persist` is true.
-//  `serialize`: Serialize in-memory pdfsearch.PdfIndex to a []byte.
+//  `serialize`: Serialize in-memory pdfsearch.PdfIndex to []byte.
 //  `persist`: Persist pdfsearch.PdfIndex to disk.
 //  `reuse`: Don't create a pdfsearch.PdfIndex. Reuse one that was previously persisted to disk.
 //  `nameOnly`: Show matching file names only.
@@ -129,8 +130,8 @@ func runIndexSearchShow(pathList []string, term, persistDir string, serialize, p
 }
 
 // runIndexSearch creates a pdfsearch.PdfIndex for the PDF files in `pathList`, searches for `term`
-// in this index and returns the pdfsearch.PdfIndex, the search results and the indexing and search
-// durations.
+//  in this index and returns the pdfsearch.PdfIndex, the search results and the indexing and search
+//  durations.
 // This is the main function. It shows you how to create an index annd search it.
 //
 //  `persistDir`: The directory the pdfsearch.PdfIndex is saved in if `persist` is true.
@@ -153,7 +154,7 @@ func runIndexSearch(pathList []string, term, persistDir string, serialize, persi
 			fmt.Printf("%d of %d : %q\n", i, len(pathList), inPath)
 			rs, err := os.Open(inPath)
 			if err != nil {
-				panic(err)
+				return pdfIndex, results, dt, dtIndex, err
 			}
 			defer rs.Close()
 			rsList = append(rsList, rs)
@@ -179,7 +180,7 @@ func runIndexSearch(pathList []string, term, persistDir string, serialize, persi
 	} else {
 		results, err = pdfIndex.Search(term, maxResults)
 		if err != nil {
-			panic(err) // !@#$
+			return pdfIndex, results, dt, dtIndex, err
 		}
 	}
 	dt = time.Since(t0)
@@ -192,11 +193,11 @@ func runIndexSearch(pathList []string, term, persistDir string, serialize, persi
 }
 
 // showResults writes a report on `results`, some search results (for a term that we don't show
-// here) on `pdfIndex` that was build from the PDF files in `pathList`.
+//  here) on `pdfIndex` that was build from the PDF files in `pathList`.
 // It also creates a marked-up PDF containing the original PDF pages with the matched terms marked
 //  and saves it to `outPath`.
 //
-//  `dt` and `dtSearch` are the durations of the indexing + search, and search.
+//  `dt` and `dtSearch` are the durations of the indexing + search, and for indexing only.
 //  `serialize`: Serialize in-memory pdfsearch.PdfIndex to a []byte.
 //  `persist`: Persist pdfsearch.PdfIndex to disk.
 //  `reuse`: Don't create a pdfsearch.PdfIndex. Reuse one that was previously persisted to disk.
@@ -216,7 +217,7 @@ func showResults(pathList []string, pdfIndex pdfsearch.PdfIndex, results pdfsear
 	} else {
 
 		fmt.Println("=================+++=====================")
-		fmt.Printf("%s\n", results)
+		fmt.Printf("%+v\n", results)
 		fmt.Println("=================xxx=====================")
 	}
 

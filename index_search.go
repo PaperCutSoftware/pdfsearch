@@ -2,6 +2,8 @@
 
 /*
  * Full text search of a list of PDF files.
+ *
+ * Call like this.
  *   p, err := IndexPdfFiles(pathList, persist) creates a PdfIndex `p` for the PDF files in `pathList`.
  *   m, err := p.Search(term, -1) searches `p` for string `term`.
  *
@@ -49,13 +51,15 @@ import (
 	"github.com/unidoc/unipdf/v3/common"
 )
 
-// Make the doclib.PdfMatchSet public
+// PdfMatchSet makes doclib.PdfMatchSet public.
 type PdfMatchSet doclib.PdfMatchSet
 
+// Files  makes doclib.PdfMatchSet.Files public.
 func (s PdfMatchSet) Files() []string {
 	return doclib.PdfMatchSet(s).Files()
 }
 
+// Equals makes doclib.PdfMatchSet.Equals public.
 func (s PdfMatchSet) Equals(t PdfMatchSet) bool {
 	return doclib.PdfMatchSet(s).Equals(doclib.PdfMatchSet(t))
 }
@@ -123,7 +127,7 @@ func IndexPdfReaders(pathList []string, rsList []io.ReadSeeker, persist bool, pe
 		if err != nil {
 			return PdfIndex{}, err
 		}
-		blevePdf.Check()
+
 		return PdfIndex{
 			persist:    false,
 			blevePdf:   blevePdf,
@@ -156,7 +160,7 @@ func IndexPdfReaders(pathList []string, rsList []io.ReadSeeker, persist bool, pe
 	}, nil
 }
 
-// ReuseIndex returns a reused on-disk PdfIndex with directory `persistDir`.
+// ReuseIndex returns an existing on-disk PdfIndex with directory `persistDir`.
 func ReuseIndex(persistDir string) PdfIndex {
 	return PdfIndex{
 		persist:    true,
@@ -171,7 +175,6 @@ func ReuseIndex(persistDir string) PdfIndex {
 func SearchMem(data []byte, term string, maxResults int) (PdfMatchSet, error) {
 	common.Log.Info(" SearchMem: hash=%s", sliceHash(data))
 	pdfIndex, err := FromBytes(data)
-	pdfIndex.blevePdf.Check()
 	if err != nil {
 		return PdfMatchSet{}, err
 	}
@@ -185,7 +188,6 @@ func (p PdfIndex) Search(term string, maxResults int) (PdfMatchSet, error) {
 		maxResults = DefaultMaxResults
 	}
 	if !p.persist {
-		p.blevePdf.Check()
 		s, err := p.blevePdf.SearchBleveIndex(p.bleveIdx, term, maxResults)
 		return PdfMatchSet(s), err
 	}
@@ -206,12 +208,12 @@ func MarkupPdfResults(results PdfMatchSet, outPath string) error {
 	for i, m := range results.Matches {
 		inPath := m.InPath
 		pageNum := m.PageNum
-		dpl := m.DocPageLocations
+		dpl := m.PagePositions
 		common.Log.Info("  %d: dpl=%s m=%s", i, dpl, m)
-		if dpl.Len() == 0 {
+		if dpl.Empty() {
 			return errors.New("no Locations")
 		}
-		bbox := dpl.GetBBox(m.Start, m.End)
+		bbox := dpl.BBox(m.Start, m.End)
 		extractList.AddRect(inPath, pageNum, bbox)
 	}
 	return extractList.SaveOutputPdf(outPath)
@@ -220,19 +222,20 @@ func MarkupPdfResults(results PdfMatchSet, outPath string) error {
 // PdfIndex is an opaque struct that describes an index over some PDF files.
 // It consists of
 // - a bleve index (bleveIdx),
-// - a mapping between the PDF files and the index (blevePdf)
+// - a mapping between the PDF files and the bleve index (blevePdf)
 // - controls and statistics.
 type PdfIndex struct {
-	persist    bool
-	reused     bool
-	readSeeker bool
-	persistDir string
-	blevePdf   *doclib.BlevePdf
-	bleveIdx   bleve.Index
-	numFiles   int
-	numPages   int
-	dtPdf      time.Duration
-	dtBleve    time.Duration
+	persist    bool             // Is index on disk?
+	persistDir string           // Root directory for storing on-disk indexes.
+	bleveIdx   bleve.Index      // The bleve index used on text extracted from PDF files.
+	blevePdf   *doclib.BlevePdf // Mapping between the PDF files and the bleve index.
+	numFiles   int              // Number of PDF files indexes.
+	numPages   int              // Total number of PDF pages indexed.
+	dtPdf      time.Duration    // The time it took to extract text from PDF files.
+	dtBleve    time.Duration    // The time it tool to build the bleve index.
+	reused     bool             // Did on-disk index exist before we ran? Helpful for debugging.
+	readSeeker bool             // Were io.ReadSeeker functions used. Helpful for debugging.
+
 }
 
 // Equals returns true if `p` contains the same information as `q`.
@@ -258,6 +261,7 @@ func (p PdfIndex) String() string {
 		p.StorageName(), p.numFiles, p.numPages, p.Duration(), p.blevePdf.String())
 }
 
+// Duration returns a string describing how long indexing took and where the time was spent.
 func (p PdfIndex) Duration() string {
 	return fmt.Sprintf("%.3f sec(PDF)+%.3f sec(bleve)=%.3f sec",
 		p.dtPdf.Seconds(), p.dtBleve.Seconds(), p.dtPdf.Seconds()+p.dtBleve.Seconds())
@@ -366,7 +370,6 @@ func from2Bufs(pdfMem, bleveMem []byte) (PdfIndex, error) {
 	}
 	common.Log.Trace("FromBytes: numFiles=%d numPages=%d blevePdf=%s",
 		i.numFiles, i.numPages, *i.blevePdf)
-	blevePdf.Check()
 	return i, nil
 }
 
@@ -454,6 +457,8 @@ func sliceHash(data []byte) string {
 	return fmt.Sprintf("%x", h.Sum(nil))
 }
 
+// ExposeErrors turns off recovery from panics in called libraries.
 func ExposeErrors() {
 	doclib.ExposeErrors = true
+	doclib.CheckConsistency = true
 }

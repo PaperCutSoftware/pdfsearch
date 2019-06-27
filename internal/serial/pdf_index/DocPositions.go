@@ -48,7 +48,7 @@ func (rcv *DocPositions) MutateDocIdx(n uint64) bool {
 	return rcv._tab.MutateUint64Slot(6, n)
 }
 
-func (rcv *DocPositions) PageDpl(obj *locations.DocPageLocations, j int) bool {
+func (rcv *DocPositions) PageDpl(obj *locations.PagePositions, j int) bool {
 	o := flatbuffers.UOffsetT(rcv._tab.Offset(8))
 	if o != 0 {
 		x := rcv._tab.Vector(o)

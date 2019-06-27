@@ -32,12 +32,12 @@ type PdfMatchSet struct {
 // PdfMatch describes a single search match in a PDF document.
 // It is the analog of a bleve search.DocumentMatch.
 type PdfMatch struct {
-	InPath           string // Path of the PDF file that was matched. (A name stored in the index.)
-	PageNum          uint32 // 1-offset page number of the PDF page containing the matched text.
-	LineNum          int    // 1-offset line number of the matched text within the extracted page text.
-	Line             string // The contents of the line containing the matched text.
-	DocPageLocations        // This is used to find the bounding box of the match text on the PDF page.
-	bleveMatch              // Internal information !@#$
+	InPath        string // Path of the PDF file that was matched. (A name stored in the index.)
+	PageNum       uint32 // 1-offset page number of the PDF page containing the matched text.
+	LineNum       int    // 1-offset line number of the matched text within the extracted page text.
+	Line          string // The contents of the line containing the matched text.
+	PagePositions        // This is used to find the bounding box of the match text on the PDF page.
+	bleveMatch           // Internal information !@#$
 }
 
 // bleveMatch is the match information returned by a bleve query.
@@ -49,8 +49,6 @@ type bleveMatch struct {
 	Start    uint32 // Offset of the start of the bleve match in the page.
 	End      uint32 // Offset of the end of the bleve match in the page.
 }
-
-const doValidation = true
 
 // ErrNoMatch indicates there was no match for a bleve hit. It is not a real error.
 var ErrNoMatch = errors.New("no match for hit")
@@ -92,31 +90,6 @@ func (p PdfMatch) equals(q PdfMatch) bool {
 	}
 
 	return true
-}
-
-func (s PdfMatchSet) validate() {
-	if !doValidation {
-		return
-	}
-	for i, m := range s.Matches {
-		if m.PageNum == 0 {
-			common.Log.Error("validate %d of %d: pageNum=0", i, len(s.Matches))
-			panic("no positions")
-		}
-		if err := m.validate(); err != nil {
-			common.Log.Error("validate %d of %d: err=%v", i, len(s.Matches), err)
-			panic("no positions")
-		}
-	}
-}
-
-// Validate returns an error if `m` is invalid.
-func (m PdfMatch) validate() error {
-	dpl := m.DocPageLocations
-	if dpl.Len() == 0 {
-		return fmt.Errorf("No positions: Locations=%d m=%s", dpl.Len(), m)
-	}
-	return nil
 }
 
 // SearchPositionIndex performs a bleve search on the persistent index in `persistDir`/bleve for
@@ -207,9 +180,6 @@ func (blevePdf *BlevePdf) srToMatchSet(sr *bleve.SearchResult) (PdfMatchSet, err
 				}
 				return PdfMatchSet{}, err
 			}
-			if err := m.validate(); err != nil {
-				return PdfMatchSet{}, err
-			}
 			matches = append(matches, m)
 		}
 	}
@@ -221,7 +191,6 @@ func (blevePdf *BlevePdf) srToMatchSet(sr *bleve.SearchResult) (PdfMatchSet, err
 		SearchDuration: sr.Took,
 		Matches:        matches,
 	}
-	results.validate()
 	return results, nil
 }
 
@@ -274,30 +243,27 @@ func (blevePdf *BlevePdf) hitToPdfMatch(hit *search.DocumentMatch) (PdfMatch, er
 	if err != nil {
 		return PdfMatch{}, err
 	}
-	inPath, pageNum, dpl, err := blevePdf.ReadDocPagePositions(m.docIdx, m.pageIdx)
+	inPath, pageNum, dpl, err := blevePdf.docPagePositions(m.docIdx, m.pageIdx)
 	if err != nil {
 		return PdfMatch{}, err
 	}
-	text, err := blevePdf.ReadDocPageText(m.docIdx, m.pageIdx)
+	text, err := blevePdf.docPageText(m.docIdx, m.pageIdx)
 	if err != nil {
 		return PdfMatch{}, err
 	}
-	lineNum, line, ok := getLineNumber(text, m.Start)
+	lineNum, line, ok := lineNumber(text, m.Start)
 	if !ok {
 		return PdfMatch{}, fmt.Errorf("No line number. m=%s", m)
 	}
-	match := PdfMatch{
-		InPath:           inPath,
-		PageNum:          pageNum,
-		LineNum:          lineNum,
-		Line:             line,
-		DocPageLocations: dpl,
-		bleveMatch:       m,
-	}
-	if err := match.validate(); err != nil {
-		return PdfMatch{}, err
-	}
-	return match, nil
+
+	return PdfMatch{
+		InPath:        inPath,
+		PageNum:       pageNum,
+		LineNum:       lineNum,
+		Line:          line,
+		PagePositions: dpl,
+		bleveMatch:    m,
+	}, nil
 }
 
 func (m bleveMatch) String() string {
@@ -376,15 +342,15 @@ func decodeID(id string) (uint64, uint32, error) {
 	return uint64(docIdx), uint32(pageIdx), nil
 }
 
-// getLineNumber returns the 1-offset line number and the text of the line of the contains
+// lineNumber returns the 1-offset line number and the text of the line of the contains
 // the 0-offset `offset` in `text`.
-func getLineNumber(text string, offset uint32) (int, string, bool) {
+func lineNumber(text string, offset uint32) (int, string, bool) {
 	endings := lineEndings(text)
 	n := len(endings)
 	i := sort.Search(len(endings), func(i int) bool { return endings[i] > offset })
 	ok := 0 <= i && i < n
 	if !ok {
-		common.Log.Error("getLineNumber: offset=%d text=%d i=%d endings=%d %+v\n%s",
+		common.Log.Error("lineNumber: offset=%d text=%d i=%d endings=%d %+v\n%s",
 			offset, len(text), i, n, endings, text)
 		panic("fff")
 	}

@@ -23,12 +23,12 @@ import (
 // per-document data was extracted from.
 // There is one DocPositions per document.
 type DocPositions struct {
-	blevePdf    *BlevePdf                   // State of whole store.
-	inPath      string                      // Path of input PDF file.
-	docIdx      uint64                      // Index into blevePdf.fileList.
-	pageDpl     map[uint32]DocPageLocations // {pageNum: locations of text on page}
-	*docPersist                             // Optional extra fields for in-memory indexes.
-	*docData                                // Optional extra fields for on-disk indexes.
+	blevePdf    *BlevePdf                // State of whole store.
+	inPath      string                   // Path of input PDF file.
+	docIdx      uint64                   // Index into blevePdf.fileList.
+	pageDpl     map[uint32]PagePositions // {pageNum: locations of text on page}
+	*docPersist                          // Optional extra fields for in-memory indexes.
+	*docData                             // Optional extra fields for on-disk indexes.
 }
 
 // docPersist tracks the info for indexing a PDF file on disk.
@@ -48,45 +48,45 @@ type docData struct {
 	pageTexts []string
 }
 
-// byteSpan is the location of the bytes of a DocPageLocations in a data file.
+// byteSpan is the location of the bytes of a PagePositions in a data file.
 // The span is over [Offset, Offset+Size).
-// There is one byteSpan (corresponding to a DocPageLocations) per page.
+// There is one byteSpan (corresponding to a PagePositions) per page.
 type byteSpan struct {
-	Offset  uint32 // Offset in the data file for the DocPageLocations for a page.
-	Size    uint32 // Size of the DocPageLocations in the data file.
-	Check   uint32 // CRC checksum for the DocPageLocations data.
+	Offset  uint32 // Offset in the data file for the PagePositions for a page.
+	Size    uint32 // Size of the PagePositions in the data file.
+	Check   uint32 // CRC checksum for the PagePositions data.
 	PageNum uint32 // PDF page number.
 }
 
 // Equals returns true if `d` contains the same information as `e`.
-func (d *DocPositions) Equals(e *DocPositions) bool {
-	if len(d.pageNums) != len(e.pageNums) {
-		common.Log.Error("DocPositions.Equal.pageNums: %d %d", len(d.pageNums), len(e.pageNums))
+func (lDoc *DocPositions) Equals(e *DocPositions) bool {
+	if len(lDoc.pageNums) != len(e.pageNums) {
+		common.Log.Error("DocPositions.Equal.pageNums: %d %d", len(lDoc.pageNums), len(e.pageNums))
 		return false
 	}
-	if len(d.pageTexts) != len(e.pageTexts) {
-		common.Log.Error("DocPositions.Equal.pageTexts: %d %d", len(d.pageTexts), len(e.pageTexts))
+	if len(lDoc.pageTexts) != len(e.pageTexts) {
+		common.Log.Error("DocPositions.Equal.pageTexts: %d %d", len(lDoc.pageTexts), len(e.pageTexts))
 		return false
 	}
-	if len(d.pageDpl) != len(e.pageDpl) {
-		common.Log.Error("DocPositions.Equal.pageDpl: %d %d", len(d.pageDpl), len(e.pageDpl))
+	if len(lDoc.pageDpl) != len(e.pageDpl) {
+		common.Log.Error("DocPositions.Equal.pageDpl: %d %d", len(lDoc.pageDpl), len(e.pageDpl))
 		return false
 	}
-	for i, dp := range d.pageNums {
+	for i, dp := range lDoc.pageNums {
 		ep := e.pageNums[i]
 		if dp != ep {
 			common.Log.Error("DocPositions.Equal.pageNums[%d]: %d %d", i, dp, ep)
 			return false
 		}
 	}
-	for i, dt := range d.pageTexts {
+	for i, dt := range lDoc.pageTexts {
 		et := e.pageTexts[i]
 		if dt != et {
 			common.Log.Error("DocPositions.Equal.pageTexts[%d]: %d %d", i, dt, et)
 			return false
 		}
 	}
-	for i, dp := range d.pageDpl {
+	for i, dp := range lDoc.pageDpl {
 		ep, ok := e.pageDpl[i]
 		if !ok || !dp.Equals(ep) {
 			common.Log.Error("DocPositions.Equal.pageDpl[%d]: %t %d %d", i, ok, dp, ep)
@@ -97,49 +97,54 @@ func (d *DocPositions) Equals(e *DocPositions) bool {
 }
 
 // String returns a human readable string describing `d`.
-func (d DocPositions) String() string {
+func (lDoc DocPositions) String() string {
 	var sb strings.Builder
 	fmt.Fprintf(&sb, "DocPositions{%q docIdx=%d mem=%t",
-		filepath.Base(d.inPath), d.docIdx, d.docData != nil)
-	if d.docPersist != nil {
-		sb.WriteString(d.docPersist.String())
+		filepath.Base(lDoc.inPath), lDoc.docIdx, lDoc.isMem())
+	if lDoc.docPersist != nil {
+		sb.WriteString(lDoc.docPersist.String())
 	}
-	if d.docData != nil {
-		sb.WriteString(d.docData.String())
-	}
-	if (d.docPersist != nil) == (d.docData != nil) {
-		sb.WriteString("<BAD>")
+	if lDoc.docData != nil {
+		sb.WriteString(lDoc.docData.String())
 	}
 	sb.WriteString("}")
 	return sb.String()
 }
 
-// Len returns h
-func (d DocPositions) Len() int {
-	panic("DocPositions.Len")
-	return len(d.pageNums)
+// Len returns the number of pages in `d`.
+func (lDoc DocPositions) Len() int {
+	return len(lDoc.pageNums)
 }
 
 // isMem returns true if `d` is an in-memory database.
-// Caller must check that (d.docPersist != nil) != (d.docData != nil)
-func (d DocPositions) isMem() bool {
-	// panic(fmt.Errorf("DocPositions.isMem=%t",d.docData != nil))
-	if err := d.validate(); err != nil {
-		panic(err)
-	}
-	return d.docData != nil
+// Caller must check that (lDoc.docPersist != nil) != (lDoc.docData != nil)
+func (lDoc DocPositions) isMem() bool {
+	lDoc.check()
+	return lDoc.docData != nil
 }
 
-func (d DocPositions) validate() error {
-	persist := d.docPersist != nil
-	mem := d.docData != nil
+// check panics is `d` is an inconsistent state, which should never happen.
+func (lDoc DocPositions) check() {
+	persist := lDoc.docPersist != nil
+	mem := lDoc.docData != nil
 	if persist == mem {
-		return fmt.Errorf("d=%s should not happen\n%#v", d, d)
+		panic(fmt.Errorf("lDoc=%s should not happen\n%#v", lDoc, lDoc))
 	}
-	return nil
+	if mem {
+		return
+	}
+
+	keys := lDoc.pageKeys()
+	for _, pageNum := range keys {
+		if pageNum == 0 {
+			common.Log.Error("lDoc.check.:\n\tlDoc=%#v\n\tpageDpl=%#v", lDoc, lDoc.pageDpl)
+			common.Log.Error("lDoc.check.: keys=%d %+v", len(keys), keys)
+			panic(errors.New("lDoc.check.: bad pageNum"))
+		}
+	}
 }
 
-// String returns a human readable string describing `d`.
+// String returns a human readable string describing docPersist `d`.
 func (d docPersist) String() string {
 	var parts []string
 	for i, span := range d.spans {
@@ -148,6 +153,7 @@ func (d docPersist) String() string {
 	return fmt.Sprintf("docPersist{%s}", strings.Join(parts, "\n"))
 }
 
+// String returns a human readable string describing docData `d`.
 func (d docData) String() string {
 	np := len(d.pageNums)
 	nt := len(d.pageTexts)
@@ -184,10 +190,13 @@ func (lDoc *DocPositions) openDoc() error {
 	return nil
 }
 
+// Save saves `lDoc` to disk if it peristent.
 func (lDoc *DocPositions) Save() error {
 	if lDoc.isMem() {
 		return nil
 	}
+
+	// Persistent case.
 	b, err := json.MarshalIndent(lDoc.spans, "", "\t")
 	if err != nil {
 		return err
@@ -195,10 +204,12 @@ func (lDoc *DocPositions) Save() error {
 	return ioutil.WriteFile(lDoc.spansPath, b, 0666)
 }
 
+// Close closees `lDoc`'s open files  if it peristent.
 func (lDoc *DocPositions) Close() error {
 	if lDoc.isMem() {
 		return nil
 	}
+
 	// Persistent case.
 	if err := lDoc.saveJsonDebug(); err != nil {
 		return err
@@ -209,7 +220,7 @@ func (lDoc *DocPositions) Close() error {
 	return lDoc.dataFile.Close()
 }
 
-// saveJsonDebug serialized `lDoc` to file `lDoc.pageDplPath` as JSON.
+// saveJsonDebug serializes `lDoc` to file `lDoc.pageDplPath` as JSON.
 func (lDoc *DocPositions) saveJsonDebug() error {
 	common.Log.Debug("saveJsonDebug: pageDpl=%d pageDplPath=%q", len(lDoc.pageDpl), lDoc.pageDplPath)
 	var pageNums []uint32
@@ -238,7 +249,7 @@ func (lDoc *DocPositions) saveJsonDebug() error {
 // AddDocPage adds a page (with page number `pageNum` and contents `dpl`) to `lDoc`.
 // It returns the page index, that can be used to access this page from ReadPagePositions()
 // !@#$ Remove `text` param.
-func (lDoc *DocPositions) AddDocPage(pageNum uint32, dpl DocPageLocations, text string) (
+func (lDoc *DocPositions) AddDocPage(pageNum uint32, dpl PagePositions, text string) (
 	uint32, error) {
 
 	if pageNum == 0 {
@@ -254,7 +265,7 @@ func (lDoc *DocPositions) AddDocPage(pageNum uint32, dpl DocPageLocations, text 
 	return lDoc.addDocPagePersist(pageNum, dpl, text)
 }
 
-func (lDoc *DocPositions) addDocPagePersist(pageNum uint32, dpl DocPageLocations,
+func (lDoc *DocPositions) addDocPagePersist(pageNum uint32, dpl PagePositions,
 	text string) (uint32, error) {
 
 	b := flatbuffers.NewBuilder(0)
@@ -279,7 +290,7 @@ func (lDoc *DocPositions) addDocPagePersist(pageNum uint32, dpl DocPageLocations
 	lDoc.spans = append(lDoc.spans, span)
 	pageIdx := uint32(len(lDoc.spans) - 1)
 
-	filename := lDoc.GetTextPath(pageIdx)
+	filename := lDoc.textPath(pageIdx)
 	err = ioutil.WriteFile(filename, []byte(text), 0644)
 	if err != nil {
 		return 0, err
@@ -288,7 +299,7 @@ func (lDoc *DocPositions) addDocPagePersist(pageNum uint32, dpl DocPageLocations
 }
 
 // !@#$ Needed?
-func (lDoc *DocPositions) ReadPageText(pageIdx uint32) (string, error) {
+func (lDoc *DocPositions) pageText(pageIdx uint32) (string, error) {
 	if lDoc.isMem() {
 		return lDoc.pageTexts[pageIdx], nil
 	}
@@ -296,7 +307,7 @@ func (lDoc *DocPositions) ReadPageText(pageIdx uint32) (string, error) {
 }
 
 func (lDoc *DocPositions) readPersistedPageText(pageIdx uint32) (string, error) {
-	filename := lDoc.GetTextPath(pageIdx)
+	filename := lDoc.textPath(pageIdx)
 	b, err := ioutil.ReadFile(filename)
 	if err != nil {
 		return "", err
@@ -304,18 +315,18 @@ func (lDoc *DocPositions) readPersistedPageText(pageIdx uint32) (string, error) 
 	return string(b), nil
 }
 
-// ReadPagePositions returns the DocPageLocations of the text on the `pageIdx` (0-offset)
+// pagePositions returns the PagePositions of the text on the `pageIdx` (0-offset)
 // returned text in document `lDoc`.
-func (lDoc *DocPositions) ReadPagePositions(pageIdx uint32) (uint32, DocPageLocations, error) {
+func (lDoc *DocPositions) pagePositions(pageIdx uint32) (uint32, PagePositions, error) {
 	if lDoc.isMem() {
 		if pageIdx >= uint32(len(lDoc.pageNums)) {
-			return 0, DocPageLocations{}, fmt.Errorf("bad pageIdx=%d lDoc=%s", pageIdx, lDoc)
+			return 0, PagePositions{}, fmt.Errorf("bad pageIdx=%d lDoc=%s", pageIdx, lDoc)
 		}
 		common.Log.Debug("ReadPagePositions: pageIdx=%d pageNums=%d %+v", pageIdx, len(lDoc.pageNums),
 			lDoc.pageNums)
 		pageNum := lDoc.pageNums[pageIdx]
 		if pageNum == 0 {
-			return 0, DocPageLocations{}, fmt.Errorf("No pageNum. lDoc=%s", lDoc)
+			return 0, PagePositions{}, fmt.Errorf("No pageNum. lDoc=%s", lDoc)
 		}
 		dpl, ok := lDoc.pageDpl[pageNum]
 		if !ok {
@@ -324,38 +335,16 @@ func (lDoc *DocPositions) ReadPagePositions(pageIdx uint32) (uint32, DocPageLoca
 			common.Log.Error("ReadPagePositions: pageNums=%d %+v", len(lDoc.pageNums), lDoc.pageNums)
 			keys := lDoc.pageKeys()
 			common.Log.Error("ReadPagePositions: keys=%d %+v", len(lDoc.pageDpl), keys)
-			return 0, DocPageLocations{}, errors.New("pageNum not in pageDpl")
+			return 0, PagePositions{}, errors.New("pageNum not in pageDpl")
 		}
-		if dpl.Len() == 0 {
+		if len(dpl.locations) == 0 {
 			common.Log.Error("ReadPagePositions: pageIdx=%d pageNum=%d lDoc=%s",
 				pageIdx, pageNum, lDoc)
-			return 0, DocPageLocations{}, errors.New("no locations")
+			return 0, PagePositions{}, errors.New("no locations")
 		}
 		return pageNum, dpl, nil
 	}
 	return lDoc.readPersistedPagePositions(pageIdx)
-}
-
-// Check performs a sanity check on the fields in `lDoc`.
-func (lDoc *DocPositions) Check() error {
-	if !lDoc.isMem() {
-		return nil
-	}
-	// if len(lDoc.pageNums) == 0 {
-	// 	return errors.New("lDoc.Check: pageNums")
-	// }
-	// if len(lDoc.pageTexts) == 0 {
-	// 	return errors.New("lDoc.Check: pageTexts")
-	// }
-	keys := lDoc.pageKeys()
-	for _, pageNum := range keys {
-		if pageNum == 0 {
-			common.Log.Error("lDoc.Check:\n\tlDoc=%#v\n\tpageDpl=%#v", *lDoc, lDoc.pageDpl)
-			common.Log.Error("lDoc.Check: keys=%d %+v", len(keys), keys)
-			return errors.New("lDoc.Check: bad pageNum")
-		}
-	}
-	return nil
 }
 
 // pageKeys returns the `lDoc.pageDpl` keys.
@@ -369,34 +358,35 @@ func (lDoc *DocPositions) pageKeys() []int {
 }
 
 func (lDoc *DocPositions) readPersistedPagePositions(pageIdx uint32) (
-	uint32, DocPageLocations, error) {
+	uint32, PagePositions, error) {
 
 	e := lDoc.spans[pageIdx]
 	if e.PageNum == 0 {
-		return 0, DocPageLocations{}, fmt.Errorf("Bad span pageIdx=%d e=%+v", pageIdx, e)
+		return 0, PagePositions{}, fmt.Errorf("Bad span pageIdx=%d e=%+v", pageIdx, e)
 	}
 
 	offset, err := lDoc.dataFile.Seek(int64(e.Offset), io.SeekStart)
 	if err != nil || uint32(offset) != e.Offset {
 		common.Log.Error("ReadPagePositions: Seek failed e=%+v offset=%d err=%v",
 			e, offset, err)
-		return 0, DocPageLocations{}, err
+		return 0, PagePositions{}, err
 	}
 	buf := make([]byte, e.Size)
 	if _, err := lDoc.dataFile.Read(buf); err != nil {
-		return 0, DocPageLocations{}, err
+		return 0, PagePositions{}, err
 	}
 	size := len(buf)
 	check := crc32.ChecksumIEEE(buf)
 	if check != e.Check {
 		common.Log.Error("ReadPagePositions: e=%+v size=%d check=%d", e, size, check)
-		return 0, DocPageLocations{}, errors.New("bad checksum")
+		return 0, PagePositions{}, errors.New("bad checksum")
 	}
 	locations, err := serial.ReadDocPageLocations(buf)
-	return e.PageNum, DocPageLocations{locations}, err
+	return e.PageNum, PagePositions{locations}, err
 }
 
-func (lDoc *DocPositions) GetTextPath(pageIdx uint32) string {
+// textPath returns the path to the file holding the extracted text of the page with index `pageIdx`.
+func (lDoc *DocPositions) textPath(pageIdx uint32) string {
 	return filepath.Join(lDoc.textDir, fmt.Sprintf("%03d.txt", pageIdx))
 }
 
