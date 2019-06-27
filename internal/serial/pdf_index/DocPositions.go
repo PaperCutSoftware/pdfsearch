@@ -5,7 +5,7 @@ package pdf_index
 import (
 	flatbuffers "github.com/google/flatbuffers/go"
 
-	locations "github.com/papercutsoftware/pdfsearch/serial/locations"
+	locations "github.com/papercutsoftware/pdfsearch/internal/serial/locations"
 )
 
 type DocPositions struct {

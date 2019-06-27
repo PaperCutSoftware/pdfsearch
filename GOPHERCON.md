@@ -42,7 +42,7 @@ This sounds straightforward and it was. But it didn't have to be. Not all softwa
 much functionality that is as easy to understand and use as that in the Go ecosystem.
 
 Doing PDF full text search with a pure Go library provided several benefits for the software
-products my employer, [PaperCut]](https://www.papercut.com/), makes.
+products my employer, [PaperCut](https://www.papercut.com/), makes.
 * Product developers could just call my library from my Go code rather than setting up a web service
  running Elasticsearch. The developer time saved here quickly paid back the 2-3 developer weeks I
  spent writing the Go library.

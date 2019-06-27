@@ -12,7 +12,8 @@ import (
 	"time"
 
 	pdfsearch "github.com/papercutsoftware/pdfsearch"
-	"github.com/papercutsoftware/pdfsearch/doclib"
+	"github.com/papercutsoftware/pdfsearch/examples/cmd_utils"
+	"github.com/papercutsoftware/pdfsearch/internal/doclib"
 )
 
 // TODO: Implement -m indexing. Needs bleve PR.
@@ -38,7 +39,6 @@ func main() {
 	var persist bool
 	var reuse bool
 	var nameOnly bool
-	var useReaderSeeker bool
 	maxSearchResults := 10
 	outPath := "search.results.pdf"
 	groupSize := -1
@@ -53,11 +53,10 @@ func main() {
 	flag.BoolVar(&nameOnly, "l", nameOnly, "Show matching file names only.")
 	flag.IntVar(&maxSearchResults, "n", maxSearchResults, "Max number of search results to return.")
 	flag.IntVar(&groupSize, "g", groupSize, "Max number of files per index. (For stress testing).")
-	flag.BoolVar(&useReaderSeeker, "j", useReaderSeeker, "Exercise the io.ReaderSeeker API.")
 	flag.BoolVar(&compare, "c", compare, "Compare serialized and non-memoryd in-memory results.")
 	flag.BoolVar(&compareDisk, "cd", compareDisk, "Compare in-memory and on-disk results.")
 
-	doclib.MakeUsage(usage)
+	cmd_utils.MakeUsage(usage)
 	flag.Parse()
 
 	if len(flag.Args()) < 1 {
@@ -66,7 +65,7 @@ func main() {
 	}
 
 	// We always want to see all errors in our testing.
-	doclib.ExposeErrors = true
+	pdfsearch.ExposeErrors()
 
 	// The term to search for.
 	term := strings.Join(flag.Args(), " ")
@@ -104,12 +103,12 @@ func main() {
 	var err error
 	var pathList []string
 	if !reuse {
-		pathList, err = doclib.PatternsToPaths([]string{pathPattern}, true)
+		pathList, err = cmd_utils.PatternsToPaths([]string{pathPattern}, true)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "PatternsToPaths failed. args=%#q err=%v\n", flag.Args(), err)
 			os.Exit(1)
 		}
-		// pathList = doclib.CleanCorpus(pathList) !@#$ pc-only
+		// pathList = cmd_utils.CleanCorpus(pathList) //!@#$ pc-only
 		if len(pathList) < 1 {
 			fmt.Fprintf(os.Stderr, "No files matching %q.\n", pathPattern)
 			os.Exit(1)
@@ -137,8 +136,8 @@ func main() {
 	}
 }
 
-// runIndexSearchShow creates a pdfsearch.PdfIndex for the PDF files in `pathList`, searches for `term` in
-// this index, and shows the results.
+// runIndexSearchShow creates a pdfsearch.PdfIndex for the PDF files in `pathList`, searches for
+//`term` in this index, and shows the results.
 // It also creates a marked-up PDF containing the original PDF pages with the matched terms marked
 //  and saves it to `outPath`.
 // This is the main test function. The runIndexSearch() function is calls shows you how to create an
@@ -149,13 +148,12 @@ func main() {
 //  `persist`: Persist pdfsearch.PdfIndex to disk.
 //  `reuse`: Don't create a pdfsearch.PdfIndex. Reuse one that was previously persisted to disk.
 //  `nameOnly`: Show matching file names only.
-//  `useReaderSeeker`: Exercise the io.ReaderSeeker API.
 //  `maxResults`: Max number of search results to return.
-func runIndexSearchShow(pathList []string, term, persistDir string, serialize, persist, reuse, nameOnly,
-	useReaderSeeker bool, maxResults int, outPath string) error {
+func runIndexSearchShow(pathList []string, term, persistDir string, serialize, persist, reuse,
+	nameOnly bool, maxResults int, outPath string) error {
 
 	pdfIndex, results, dt, dtIndex, err := runIndexSearch(pathList, term, persistDir, serialize,
-		persist, reuse, useReaderSeeker, maxResults)
+		persist, reuse, maxResults)
 	if err != nil {
 		return err
 	}
@@ -306,11 +304,9 @@ func runAllModes(pathList []string, term, persistDir string, nameOnly,
 //  `serialize`: Serialize in-memory pdfsearch.PdfIndex to a []byte.
 //  `persist`: Persist pdfsearch.PdfIndex to disk.
 //  `reuse`: Don't create a pdfsearch.PdfIndex. Reuse one that was previously persisted to disk.
-//  `useReaderSeeker`: Exercise the io.ReaderSeeker API.
 //  `maxResults`: Max number of search results to return.
-func runIndexSearch(pathList []string, term, persistDir string, serialize, persist, reuse,
-	useReaderSeeker bool, maxResults int) (
-	pdfIndex pdfsearch.PdfIndex, results doclib.PdfMatchSet, dt, dtIndex time.Duration, err error) {
+func runIndexSearch(pathList []string, term, persistDir string, serialize, persist, reuse bool, maxResults int) (
+	pdfIndex pdfsearch.PdfIndex, results pdfsearch.PdfMatchSet, dt, dtIndex time.Duration, err error) {
 
 	fmt.Fprintf(os.Stderr, "@@@@ %t %t %d %q\n", serialize, persist, len(pathList), pathList)
 
@@ -335,7 +331,7 @@ func runIndexSearch(pathList []string, term, persistDir string, serialize, persi
 			return pdfIndex, results, dt, dtIndex, err
 		}
 	} else {
-		pdfIndex, err = pdfsearch.IndexPdfFiles(pathList, persist, persistDir, report, useReaderSeeker)
+		pdfIndex, err = pdfsearch.IndexPdfFiles(pathList, persist, persistDir, report, false)
 		if err != nil {
 			return pdfIndex, results, dt, dtIndex, err
 		}
@@ -372,9 +368,8 @@ func runIndexSearch(pathList []string, term, persistDir string, serialize, persi
 //  `persist`: Persist pdfsearch.PdfIndex to disk.
 //  `reuse`: Don't create a pdfsearch.PdfIndex. Reuse one that was previously persisted to disk.
 //  `nameOnly`: Show matching file names only.
-//  `useReaderSeeker`: Exercise the io.ReaderSeeker API.
 //  `maxResults`: Max number of search results to return.
-func showResults(pathList []string, pdfIndex pdfsearch.PdfIndex, results doclib.PdfMatchSet,
+func showResults(pathList []string, pdfIndex pdfsearch.PdfIndex, results pdfsearch.PdfMatchSet,
 	dt, dtIndex time.Duration, serialize, nameOnly bool, maxResults int, outPath string) error {
 
 	if nameOnly {

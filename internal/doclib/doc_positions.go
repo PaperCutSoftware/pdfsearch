@@ -15,7 +15,7 @@ import (
 	"strings"
 
 	flatbuffers "github.com/google/flatbuffers/go"
-	"github.com/papercutsoftware/pdfsearch/serial"
+	"github.com/papercutsoftware/pdfsearch/internal/serial"
 	"github.com/unidoc/unipdf/v3/common"
 )
 
@@ -23,9 +23,9 @@ import (
 // per-document data was extracted from.
 // There is one DocPositions per document.
 type DocPositions struct {
-	lState      *PositionsState             // State of whole store.
+	blevePdf    *BlevePdf                   // State of whole store.
 	inPath      string                      // Path of input PDF file.
-	docIdx      uint64                      // Index into lState.fileList.
+	docIdx      uint64                      // Index into blevePdf.fileList.
 	pageDpl     map[uint32]DocPageLocations // {pageNum: locations of text on page}
 	*docPersist                             // Optional extra fields for in-memory indexes.
 	*docData                                // Optional extra fields for on-disk indexes.
@@ -403,7 +403,7 @@ func (lDoc *DocPositions) GetTextPath(pageIdx uint32) string {
 // DocPageText contains doc:page indexes, the PDF page number and the text extracted from from a PDF
 // page.
 type DocPageText struct {
-	DocIdx  uint64 // Doc index (0-offset) into PositionsState.fileList .
+	DocIdx  uint64 // Doc index (0-offset) into BlevePdf.fileList .
 	PageIdx uint32 // Page index (0-offset) into DocPositions.index .
 	PageNum uint32 // Page number in PDF file (1-offset)
 	Text    string // Extracted page text.

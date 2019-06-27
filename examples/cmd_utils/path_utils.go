@@ -1,6 +1,6 @@
 // Copyright 2019 PaperCut Software International Pty Ltd. All rights reserved.
 
-package doclib
+package cmd_utils
 
 import (
 	"crypto/sha256"
@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+
 	"github.com/bmatcuk/doublestar"
 	"github.com/unidoc/unipdf/v3/common"
 )
@@ -151,7 +152,6 @@ func ExpandUser(filename string) string {
 	return strings.Replace(filename, "~", homeDir, -1)
 }
 
-
 // SortFileSize returns the paths of the files in `pathList` sorted by ascending size.
 // If `minSize` >= 0 then only files of this size or larger are returned.
 // If `maxSize` >= 0 then only files of this size or smaller are returned.
@@ -197,7 +197,6 @@ type fileInfo struct {
 	os.FileInfo
 }
 
-
 // RegularFile returns true if file `filename` is a regular file.
 func RegularFile(filename string) (bool, error) {
 	fi, err := os.Stat(filename)
@@ -215,7 +214,6 @@ func FileSize(filename string) (int64, error) {
 	}
 	return fi.Size(), nil
 }
-
 
 // FileHashSize is the maximum number of hexidecimal digits returned for file hashes.
 var FileHashSize = 10
@@ -258,4 +256,17 @@ func makeHash(b []byte) string {
 		digest = digest[:FileHashSize]
 	}
 	return digest
+}
+
+// StringUniques returns the unique strings in `arr`.
+func StringUniques(arr []string) []string {
+	set := map[string]bool{}
+	var u []string
+	for _, s := range arr {
+		if _, ok := set[s]; !ok {
+			u = append(u, s)
+		}
+		set[s] = true
+	}
+	return u
 }

@@ -7,7 +7,7 @@ import (
 	"math"
 	"sort"
 
-	"github.com/papercutsoftware/pdfsearch/serial"
+	"github.com/papercutsoftware/pdfsearch/internal/serial"
 	"github.com/unidoc/unipdf/v3/common"
 	"github.com/unidoc/unipdf/v3/extractor"
 	pdf "github.com/unidoc/unipdf/v3/model"

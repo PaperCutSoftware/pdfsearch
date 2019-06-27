@@ -4,7 +4,7 @@
  * PaperCut specific functions.
  * !@#$ Remove this in the production release.
  */
-package doclib
+package cmd_utils
 
 import (
 	"strings"

@@ -13,13 +13,30 @@ import (
 	pdf "github.com/unidoc/unipdf/v3/model"
 )
 
-// ExtractList is a list of document:page inputs that are to be combined in a specified order.
+// ExtractList is a list of PDF file:page inputs that are to be marked up then combined in a
+// specificed order.
+// If i is the (0-offset) ith page, then content is the contents to be added to this page.
+// src := sources[i]
+// content := contents[src.inPath][src.pageNum]
 type ExtractList struct {
-	maxPages  int
-	sources   []Extract // Source pages in order they will be combined
-	sourceSet map[string]bool
-	contents  map[string]map[uint32]pageContent // Pages for each document
-	// documentIndex map[string]int
+	maxPages   int                               // Maximum number of pages in output PDF.
+	maxPerPage int                               // Maximum number of objects to add to each page.
+	sources    []pdfPage                         // Source pages in order they will be combined.
+	sourceSet  map[string]bool                   // Used to ensure PDF pages are only added once.
+	contents   map[string]map[uint32]pageContent // contents[inPath][pageNum] is the contents to be added to inPath:pageNum.
+}
+
+// pdfPage is a PDF page.
+type pdfPage struct {
+	inPath  string // Path of PDF that page comes from.
+	pageNum uint32 // Page number (1-offset) of page in source document.
+}
+
+// pageContent is instructions for adding items to a PDF page.
+// Currently this is a list of rectangles.
+type pageContent struct {
+	rects []pdf.PdfRectangle // the rectangles to be drawn on the PDF page
+	page  *pdf.PdfPage       // the UniDoc PDF page. Created as needed.
 }
 
 func (l ExtractList) String() string {
@@ -30,31 +47,33 @@ func (l ExtractList) String() string {
 	return strings.Join(parts, "\n")
 }
 
-type Extract struct {
-	inPath  string // Path of PDF that page comes from.
-	pageNum uint32 // Page number (1-offset) of page in source document
+// CreateExtractList returns an empty *ExtractList with `maxPages` maximum number of pages and
+// `maxPerPage` maximum rectangles per page.
+func CreateExtractList(maxPages, maxPerPage int) *ExtractList {
+	return &ExtractList{
+		maxPages:   maxPages,
+		maxPerPage: maxPerPage,
+		contents:   map[string]map[uint32]pageContent{},
+		sourceSet:  map[string]bool{},
+	}
 }
 
-type pageContent struct {
-	rects []pdf.PdfRectangle // the rectangles to be drawn on the PDF page
-	page  *pdf.PdfPage       // the UniDoc PDF page. Created as needed.
-}
-
-// type DocContents struct {
-// 	pageNums []int          // page number (1-offset) of page in source document
-// 	pages    []*pdf.PdfPage // pages
-// }
-
+// AddRect adds to `l`, instructions to draw rectangle `r` on (1-offset) page number `pageNum` of
+// PDF file `inPath`
 func (l *ExtractList) AddRect(inPath string, pageNum uint32, r pdf.PdfRectangle) {
-	common.Log.Debug("AddRect %q %3d %v", filepath.Base(inPath), pageNum,r)
+	common.Log.Debug("AddRect: %q %3d %v", filepath.Base(inPath), pageNum, r)
+	if pageNum == 0 {
+		common.Log.Error("inPath=%q pageNum=%d", inPath, pageNum)
+		panic("pageNum = 0")
+	}
 	pathPage := fmt.Sprintf("%s.%d", inPath, pageNum)
 	if !l.sourceSet[pathPage] {
 		if len(l.sourceSet) >= l.maxPages {
-			common.Log.Debug("AddRect: %q:%d len=%d MAX PAGES EXCEEDED", inPath, pageNum)
+			common.Log.Info("AddRect: %q:%d len=%d MAX PAGES EXCEEDED", inPath, pageNum)
 			return
 		}
 		l.sourceSet[pathPage] = true
-		l.sources = append(l.sources, Extract{inPath, pageNum})
+		l.sources = append(l.sources, pdfPage{inPath, pageNum})
 		common.Log.Debug("AddRect: %q:%d len=%d", filepath.Base(inPath), pageNum, len(l.sourceSet))
 	}
 
@@ -64,32 +83,22 @@ func (l *ExtractList) AddRect(inPath string, pageNum uint32, r pdf.PdfRectangle)
 		l.contents[inPath] = docContent
 	}
 	pageContent := docContent[pageNum]
-	if len(pageContent.rects) >= 3 {
-		return // !@#$
+	if len(pageContent.rects) >= l.maxPerPage {
+		common.Log.Debug("AddRect: Maximum number of rectangle per page reached. %d", l.maxPerPage)
+		return
 	}
 	pageContent.rects = append(pageContent.rects, r)
-	if pageNum == 0 {
-		common.Log.Error("inPath=%q pageNum=%d", inPath, pageNum)
-	}
 	docContent[pageNum] = pageContent
 }
 
-func CreateExtractList(maxPages int) *ExtractList {
-	return &ExtractList{
-		maxPages:  maxPages,
-		contents:  map[string]map[uint32]pageContent{},
-		sourceSet: map[string]bool{},
-	}
-}
+const (
+	// BorderWidth is the width of rectangle sides in points
+	BorderWidth = 3.0
+	// ShadowWidth is the with of the shadow on the inside and outside of the rectangles
+	ShadowWidth = 0.2
+)
 
-func (l *ExtractList) NumPages() int {
-	return len(l.sources)
-}
-
-const BorderWidth = 3.0               // !@#$ For testing.
-const ShadowWidth = BorderWidth + 0.5 // !@#$ For testing.
-
-// SaveOutputPdf is called by position_search.go to markup a PDF file with the locations of text.
+// SaveOutputPdf is called  to markup a PDF file with the locations of text.
 // `l` contains the input PDF names and the pages and coordinates to mark.
 // The resulting PDF is written to `outPath`.
 func (l *ExtractList) SaveOutputPdf(outPath string) error {
@@ -157,7 +166,7 @@ func (l *ExtractList) SaveOutputPdf(outPath string) error {
 			rect := c.NewRectangle(r.Llx, h-r.Lly+shift, r.Urx-r.Llx, -(r.Ury - r.Lly + shift))
 			// rect := c.NewRectangle(r.Llx, r.Lly, r.Urx-r.Llx, r.Ury-r.Lly)
 			rect.SetBorderColor(creator.ColorRGBFromHex("#ffffff")) // White border shadow.
-			rect.SetBorderWidth(ShadowWidth)
+			rect.SetBorderWidth(BorderWidth + 2*ShadowWidth)
 			if err := c.Draw(rect); err != nil {
 				return err
 			}

@@ -11,6 +11,8 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+
+	"github.com/papercutsoftware/pdfsearch/internal/utils"
 )
 
 // loadFileDescList deserializes a file descriptor list `fdList` from json file `jsonPath` if
@@ -18,7 +20,7 @@ import (
 func loadFileDescList(jsonPath string) ([]fileDesc, error) {
 	b, err := ioutil.ReadFile(jsonPath)
 	if err != nil {
-		if !Exists(jsonPath) {
+		if !utils.Exists(jsonPath) {
 			return nil, nil
 		}
 		return nil, err
@@ -55,18 +57,18 @@ func (fd fileDesc) String() string {
 // by the file on disk with path `inPath` if `rs` is nil.
 func createFileDesc(inPath string, rs io.ReadSeeker) (fileDesc, error) {
 	if rs != nil {
-		size, hash, err := ReaderSizeHash(rs)
+		size, hash, err := utils.ReaderSizeHash(rs)
 		return fileDesc{
 			InPath: inPath,
 			Hash:   hash,
 			SizeMB: float64(size) / 1024.0 / 1024.0,
 		}, err
 	}
-	hash, err := FileHash(inPath)
+	hash, err := utils.FileHash(inPath)
 	if err != nil {
 		return fileDesc{}, err
 	}
-	size, err := FileSize(inPath)
+	size, err := utils.FileSize(inPath)
 	if err != nil {
 		return fileDesc{}, err
 	}

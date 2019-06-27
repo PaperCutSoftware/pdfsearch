@@ -1,6 +1,6 @@
 // Copyright 2019 PaperCut Software International Pty Ltd. All rights reserved.
 
-package doclib
+package utils
 
 import "sort"
 

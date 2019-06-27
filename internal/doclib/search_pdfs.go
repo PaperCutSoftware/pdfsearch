@@ -1,5 +1,11 @@
 // Copyright 2019 PaperCut Software International Pty Ltd. All rights reserved.
 
+/*
+ * Functions for searching a PdfIndex
+ *  - BlevePdf.SearchBleveIndex()
+ *  - SearchPersistentPdfIndex()
+ */
+
 package doclib
 
 import (
@@ -10,6 +16,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
 	"github.com/blevesearch/bleve"
 	"github.com/blevesearch/bleve/search"
 	"github.com/unidoc/unipdf/v3/common"
@@ -25,15 +32,15 @@ type PdfMatchSet struct {
 // PdfMatch describes a single search match in a PDF document.
 // It is the analog of a bleve search.DocumentMatch.
 type PdfMatch struct {
-	InPath                string // Path of the PDF file that was matched. (A name stored in the index.)
-	PageNum               uint32 // 1-offset page number of the PDF page containing the matched text.
-	LineNum               int    // 1-offset line number of the matched text within the extracted page text.
-	Line                  string // The contents of the line containing the matched text.
+	InPath           string // Path of the PDF file that was matched. (A name stored in the index.)
+	PageNum          uint32 // 1-offset page number of the PDF page containing the matched text.
+	LineNum          int    // 1-offset line number of the matched text within the extracted page text.
+	Line             string // The contents of the line containing the matched text.
 	DocPageLocations        // This is used to find the bounding box of the match text on the PDF page.
-	bleveMatch                   // Internal information !@#$
+	bleveMatch              // Internal information !@#$
 }
 
-// bleveMatch is the matching info returned by bleve.
+// bleveMatch is the match information returned by a bleve query.
 type bleveMatch struct {
 	docIdx   uint64  // Document index.
 	pageIdx  uint32  // Page index.
@@ -60,7 +67,7 @@ func (p PdfMatchSet) Equals(q PdfMatchSet) bool {
 	}
 	for i, m := range p.Matches {
 		n := q.Matches[i]
-		if !m.Equals(n) {
+		if !m.equals(n) {
 			common.Log.Error("PdfMatchSet.Equals.Matches[%d]:\np=%s\nq=%s", i, m, n)
 			return false
 		}
@@ -68,8 +75,8 @@ func (p PdfMatchSet) Equals(q PdfMatchSet) bool {
 	return true
 }
 
-// Equals returns true if `p` contains the same result as `q`.
-func (p PdfMatch) Equals(q PdfMatch) bool {
+// equals returns true if `p` contains the same result as `q`.
+func (p PdfMatch) equals(q PdfMatch) bool {
 	if p.InPath != q.InPath {
 		common.Log.Error("PdfMatch.Equals.InPath:\n%q\n%q", p.InPath, q.InPath)
 		return false
@@ -114,7 +121,7 @@ func (m PdfMatch) validate() error {
 
 // SearchPositionIndex performs a bleve search on the persistent index in `persistDir`/bleve for
 // `term` and returns up to `maxResults` matches. It maps the results to PDF page names, page
-// numbers, line numbers and page locations using the PositionsState that was saved in directory
+// numbers, line numbers and page locations using the BlevePdf that was saved in directory
 // `persistDir`  by IndexPdfReaders().
 func SearchPersistentPdfIndex(persistDir, term string, maxResults int) (PdfMatchSet, error) {
 	p := PdfMatchSet{}
@@ -132,13 +139,13 @@ func SearchPersistentPdfIndex(persistDir, term string, maxResults int) (PdfMatch
 	}
 	common.Log.Debug("index=%s", index)
 
-	lState, err := OpenPositionsState(persistDir, false)
+	blevePdf, err := openBlevePdf(persistDir, false)
 	if err != nil {
 		return p, fmt.Errorf("Could not open positions store %q. err=%v", persistDir, err)
 	}
-	common.Log.Debug("lState=%s", *lState)
+	common.Log.Debug("blevePdf=%s", *blevePdf)
 
-	results, err := lState.SearchBleveIndex(index, term, maxResults)
+	results, err := blevePdf.SearchBleveIndex(index, term, maxResults)
 	if err != nil {
 		return p, fmt.Errorf("Could not find term=%q %q. err=%v", term, persistDir, err)
 	}
@@ -149,18 +156,18 @@ func SearchPersistentPdfIndex(persistDir, term string, maxResults int) (PdfMatch
 	return results, nil
 }
 
-// SearchPositionIndex performs a bleve search on `index `for `term` and returns up to
+// SearchBleveIndex performs a bleve search on `index `for `term` and returns up to
 // `maxResults` matches. It maps the results to PDF page names, page numbers, line
-// numbers and page locations using `lState`.
-func (lState *PositionsState) SearchBleveIndex(index bleve.Index, term string, maxResults int) (
+// numbers and page locations using `blevePdf`.
+func (blevePdf *BlevePdf) SearchBleveIndex(index bleve.Index, term string, maxResults int) (
 	PdfMatchSet, error) {
 
 	p := PdfMatchSet{}
 
 	common.Log.Debug("SearchBleveIndex: term=%q maxResults=%d", term, maxResults)
 
-	if lState.Len() == 0 {
-		common.Log.Info("SearchBleveIndex: Empty positions store %s", lState)
+	if blevePdf.Len() == 0 {
+		common.Log.Info("SearchBleveIndex: Empty positions store %s", blevePdf)
 		return p, nil
 	}
 
@@ -184,16 +191,16 @@ func (lState *PositionsState) SearchBleveIndex(index bleve.Index, term string, m
 		return p, nil
 	}
 
-	return lState.toPdfMatches(searchResults)
+	return blevePdf.srToMatchSet(searchResults)
 }
 
-// toPdfMatches maps bleve search results `sr` to PDF page names, page numbers, line
-// numbers and page locations using `lState`.
-func (lState *PositionsState) toPdfMatches(sr *bleve.SearchResult) (PdfMatchSet, error) {
+// srToMatchSet maps bleve search results `sr` to PDF page names, page numbers, line
+// numbers and page locations using the tables in `blevePdf`.
+func (blevePdf *BlevePdf) srToMatchSet(sr *bleve.SearchResult) (PdfMatchSet, error) {
 	var matches []PdfMatch
 	if sr.Total > 0 && sr.Request.Size > 0 {
 		for _, hit := range sr.Hits {
-			m, err := lState.getPdfMatch(hit)
+			m, err := blevePdf.hitToPdfMatch(hit)
 			if err != nil {
 				if err == ErrNoMatch {
 					continue
@@ -207,7 +214,7 @@ func (lState *PositionsState) toPdfMatches(sr *bleve.SearchResult) (PdfMatchSet,
 		}
 	}
 
-	common.Log.Info("toPdfMatches: matches=%d", len(matches))
+	common.Log.Info("srToMatchSet: matches=%d", len(matches))
 
 	results := PdfMatchSet{
 		TotalMatches:   int(sr.Total),
@@ -250,7 +257,7 @@ func (s PdfMatchSet) Files() []string {
 	return files
 }
 
-// String returns a human readable description of `p`.
+// String returns a human readable description of PdfMatch `p`.
 func (p PdfMatch) String() string {
 	return fmt.Sprintf("{PdfMatch: path=%q pageNum=%d line=%d (score=%.3f)\nmatch=%q\n"+
 		"^^^^^^^^ Marked up Text ^^^^^^^^\n"+
@@ -258,20 +265,20 @@ func (p PdfMatch) String() string {
 		p.InPath, p.PageNum, p.LineNum, p.Score, p.Line, p.Fragment)
 }
 
-// getPdfMatch returns the PdfMatch corresponding the bleve DocumentMatch `hit`.
-// The returned PdfMatch contains information that is not in `hit` that is looked up in `lState`.
+// hitToPdfMatch returns the PdfMatch corresponding the bleve DocumentMatch `hit`.
+// The returned PdfMatch contains information that is not in `hit` that is looked up in `blevePdf`.
 // We purposely try to keep `hit` small to improve bleve indexing performance and to reduce the
-// index size.
-func (lState *PositionsState) getPdfMatch(hit *search.DocumentMatch) (PdfMatch, error) {
-	m, err := getBleveMatch(hit)
+// bleve index size.
+func (blevePdf *BlevePdf) hitToPdfMatch(hit *search.DocumentMatch) (PdfMatch, error) {
+	m, err := hitToBleveMatch(hit)
 	if err != nil {
 		return PdfMatch{}, err
 	}
-	inPath, pageNum, dpl, err := lState.ReadDocPagePositions(m.docIdx, m.pageIdx)
+	inPath, pageNum, dpl, err := blevePdf.ReadDocPagePositions(m.docIdx, m.pageIdx)
 	if err != nil {
 		return PdfMatch{}, err
 	}
-	text, err := lState.ReadDocPageText(m.docIdx, m.pageIdx)
+	text, err := blevePdf.ReadDocPageText(m.docIdx, m.pageIdx)
 	if err != nil {
 		return PdfMatch{}, err
 	}
@@ -298,8 +305,8 @@ func (m bleveMatch) String() string {
 		m.docIdx, m.pageIdx, m.Score, m.Fragment)
 }
 
-// getBleveMatch returns a bleveMatch filled with the information in `hit` which comes from bleve.
-func getBleveMatch(hit *search.DocumentMatch) (bleveMatch, error) {
+// hitToBleveMatch returns a bleveMatch filled with the information in `hit` which comes from bleve.
+func hitToBleveMatch(hit *search.DocumentMatch) (bleveMatch, error) {
 
 	docIdx, pageIdx, err := decodeID(hit.ID)
 	if err != nil {

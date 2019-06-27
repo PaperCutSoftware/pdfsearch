@@ -6,7 +6,7 @@ import (
 	"errors"
 
 	flatbuffers "github.com/google/flatbuffers/go"
-	"github.com/papercutsoftware/pdfsearch/serial/locations"
+	"github.com/papercutsoftware/pdfsearch/internal/serial/locations"
 	"github.com/unidoc/unipdf/v3/common"
 )
 

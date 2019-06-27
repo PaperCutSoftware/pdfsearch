@@ -14,7 +14,8 @@ import (
 	goimage "image"
 	"io"
 
-	"github.com/papercutsoftware/pdfsearch/doclib"
+	"github.com/papercutsoftware/pdfsearch/internal/doclib"
+	"github.com/papercutsoftware/pdfsearch/internal/utils"
 	"github.com/unidoc/unipdf/v3/creator"
 )
 
@@ -49,12 +50,12 @@ const (
 //  - w: width of page in points.
 //  - h: height of page in points.
 func (loc ImageLocation) coords(w, h float64) (float64, float64) {
-	xPos := doclib.MMToPoint(loc.XPosMm)
-	yPos := doclib.MMToPoint(loc.YPosMm)
-	width := doclib.MMToPoint(loc.WidthMm)
-	height := doclib.MMToPoint(loc.HeightMm)
-	marginX := doclib.MMToPoint(loc.MarginXMm)
-	marginY := doclib.MMToPoint(loc.MarginYMm)
+	xPos := utils.MMToPoint(loc.XPosMm)
+	yPos := utils.MMToPoint(loc.YPosMm)
+	width := utils.MMToPoint(loc.WidthMm)
+	height := utils.MMToPoint(loc.HeightMm)
+	marginX := utils.MMToPoint(loc.MarginXMm)
+	marginY := utils.MMToPoint(loc.MarginYMm)
 
 	// The barcode has dimensions width x width and is postioned at its top left so it needs
 	// to be positioned in the region x=0..w-width y=0..h-width to be inside the page.
@@ -108,8 +109,8 @@ func (loc ImageLocation) coords(w, h float64) (float64, float64) {
 func AddImageToPdf(rs io.ReadSeeker, w io.Writer, image goimage.Image, url string, pageNum int,
 	loc ImageLocation) error {
 
-	width := doclib.MMToPoint(loc.WidthMm)
-	height := doclib.MMToPoint(loc.HeightMm)
+	width := utils.MMToPoint(loc.WidthMm)
+	height := utils.MMToPoint(loc.HeightMm)
 
 	// b := img.Bounds()
 	// fmt.Printf(" *** img: %d x %d pixels\n", b.Max.X, b.Max.Y)

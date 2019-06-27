@@ -7,8 +7,8 @@ import (
 	"fmt"
 
 	flatbuffers "github.com/google/flatbuffers/go"
-	"github.com/papercutsoftware/pdfsearch/serial/locations"
-	"github.com/papercutsoftware/pdfsearch/serial/pdf_index"
+	"github.com/papercutsoftware/pdfsearch/internal/serial/locations"
+	"github.com/papercutsoftware/pdfsearch/internal/serial/pdf_index"
 	"github.com/unidoc/unipdf/v3/common"
 )
 
@@ -99,8 +99,8 @@ func ReadSerialPdfIndex(buf []byte) (SerialPdfIndex, error) {
 	}, nil
 }
 
-// HashIndexPathDoc is used for serializing a doclib.PositionsState. They key+values of the maps in
-// the PositionsState are stored in []HashIndexPathDoc.
+// HashIndexPathDoc is used for serializing a doclib.BlevePdf. They key+values of the maps in
+// the BlevePdf are stored in []HashIndexPathDoc.
 // table HashIndexPathDoc {
 // 	hash: string;
 // 	index: uint64;
@@ -196,7 +196,7 @@ func getHashIndexPathDoc(loc *pdf_index.HashIndexPathDoc) (HashIndexPathDoc, err
 // }
 type DocPositions struct {
 	Path      string         // Path of input PDF file.
-	DocIdx    uint64         // Index into lState.fileList.
+	DocIdx    uint64         // Index into blevePdf.fileList.
 	PageDpl   [][]OffsetBBox // PageDpl[i] <=> pageDpl[PageNums[i]]
 	PageNums  []uint32
 	PageTexts []string

@@ -1,6 +1,6 @@
 // Copyright 2019 PaperCut Software International Pty Ltd. All rights reserved.
 
-package doclib
+package utils
 
 const (
 	Inch2MM    = 25.4

@@ -43,10 +43,22 @@ import (
 	"time"
 
 	"github.com/blevesearch/bleve"
-	"github.com/papercutsoftware/pdfsearch/doclib"
-	"github.com/papercutsoftware/pdfsearch/serial"
+	"github.com/papercutsoftware/pdfsearch/internal/doclib"
+	"github.com/papercutsoftware/pdfsearch/internal/serial"
+	"github.com/papercutsoftware/pdfsearch/internal/utils"
 	"github.com/unidoc/unipdf/v3/common"
 )
+
+// Make the doclib.PdfMatchSet public
+type PdfMatchSet doclib.PdfMatchSet
+
+func (s PdfMatchSet) Files() []string {
+	return doclib.PdfMatchSet(s).Files()
+}
+
+func (s PdfMatchSet) Equals(t PdfMatchSet) bool {
+	return doclib.PdfMatchSet(s).Equals(doclib.PdfMatchSet(t))
+}
 
 const (
 	// DefaultMaxResults is the default maximum number of results returned.
@@ -106,15 +118,15 @@ func IndexPdfReaders(pathList []string, rsList []io.ReadSeeker, persist bool, pe
 	report func(string)) (PdfIndex, error) {
 
 	if !persist {
-		lState, bleveIdx, numPages, dtPdf, dtBleve, err := doclib.IndexPdfFilesOrReaders(pathList,
-			rsList, "", true, false, report)
+		blevePdf, bleveIdx, numPages, dtPdf, dtBleve, err := doclib.IndexPdfFilesOrReaders(pathList,
+			rsList, "", true, report)
 		if err != nil {
 			return PdfIndex{}, err
 		}
-		lState.Check()
+		blevePdf.Check()
 		return PdfIndex{
 			persist:    false,
-			lState:     lState,
+			blevePdf:   blevePdf,
 			bleveIdx:   bleveIdx,
 			numFiles:   len(pathList),
 			numPages:   numPages,
@@ -126,7 +138,7 @@ func IndexPdfReaders(pathList []string, rsList []io.ReadSeeker, persist bool, pe
 
 	// Persistent indexing
 	_, bleveIdx, numPages, dtPdf, dtBleve, err := doclib.IndexPdfFilesOrReaders(pathList, rsList,
-		persistDir, true, false, report)
+		persistDir, true, report)
 	if err != nil {
 		return PdfIndex{}, err
 	}
@@ -156,33 +168,39 @@ func ReuseIndex(persistDir string) PdfIndex {
 // SearchMem does a full-text search over the PdfIndex in `data` for `term` and returns up to
 // `maxResults` matches.
 // `data` is the serialized PdfIndex returned from IndexPdfMem.
-func SearchMem(data []byte, term string, maxResults int) (doclib.PdfMatchSet, error) {
+func SearchMem(data []byte, term string, maxResults int) (PdfMatchSet, error) {
 	common.Log.Info(" SearchMem: hash=%s", sliceHash(data))
 	pdfIndex, err := FromBytes(data)
-	pdfIndex.lState.Check()
+	pdfIndex.blevePdf.Check()
 	if err != nil {
-		return doclib.PdfMatchSet{}, err
+		return PdfMatchSet{}, err
 	}
 	return pdfIndex.Search(term, maxResults)
 }
 
 // Search does a full-text search over PdfIndex `p` for `term` and returns up to `maxResults` matches.
 // This is the main search function.
-func (p PdfIndex) Search(term string, maxResults int) (doclib.PdfMatchSet, error) {
+func (p PdfIndex) Search(term string, maxResults int) (PdfMatchSet, error) {
 	if maxResults < 0 {
 		maxResults = DefaultMaxResults
 	}
 	if !p.persist {
-		p.lState.Check()
-		return p.lState.SearchBleveIndex(p.bleveIdx, term, maxResults)
+		p.blevePdf.Check()
+		s, err := p.blevePdf.SearchBleveIndex(p.bleveIdx, term, maxResults)
+		return PdfMatchSet(s), err
 	}
-	return doclib.SearchPersistentPdfIndex(p.persistDir, term, maxResults)
+	s, err := doclib.SearchPersistentPdfIndex(p.persistDir, term, maxResults)
+	return PdfMatchSet(s), err
 }
 
 // MarkupPdfResults adds rectangles to the text positions of all matches on their PDF pages,
-// combines these pages together and writes the resulting PDF to `outPath`,
-func MarkupPdfResults(results doclib.PdfMatchSet, outPath string) error {
-	extractList := doclib.CreateExtractList(100)
+// combines these pages together and writes the resulting PDF to `outPath`.
+// The PDF will have at most 100 pages because no-one is likely to read through search results
+// over more than 100 pages. There will at most 10 results per page.
+func MarkupPdfResults(results PdfMatchSet, outPath string) error {
+	maxPages := 100
+	maxPerPage := 10
+	extractList := doclib.CreateExtractList(maxPages, maxPerPage)
 	common.Log.Info("=================!!!=====================")
 	common.Log.Info("Matches=%d", len(results.Matches))
 	for i, m := range results.Matches {
@@ -202,14 +220,14 @@ func MarkupPdfResults(results doclib.PdfMatchSet, outPath string) error {
 // PdfIndex is an opaque struct that describes an index over some PDF files.
 // It consists of
 // - a bleve index (bleveIdx),
-// - a mapping between the PDF files and the index (lState)
+// - a mapping between the PDF files and the index (blevePdf)
 // - controls and statistics.
 type PdfIndex struct {
 	persist    bool
 	reused     bool
 	readSeeker bool
 	persistDir string
-	lState     *doclib.PositionsState
+	blevePdf   *doclib.BlevePdf
 	bleveIdx   bleve.Index
 	numFiles   int
 	numPages   int
@@ -227,8 +245,8 @@ func (p PdfIndex) Equals(q PdfIndex) bool {
 		common.Log.Error("PdfIndex.Equals.numPages: %d %d", p.numPages, q.numPages)
 		return false
 	}
-	if !p.lState.Equals(q.lState) {
-		common.Log.Error("PdfIndex.Equals.lState:")
+	if !p.blevePdf.Equals(q.blevePdf) {
+		common.Log.Error("PdfIndex.Equals.blevePdf:")
 		return false
 	}
 	return true
@@ -236,8 +254,8 @@ func (p PdfIndex) Equals(q PdfIndex) bool {
 
 // String returns a string describing `p`.
 func (p PdfIndex) String() string {
-	return fmt.Sprintf("PdfIndex{[%s index] numFiles=%d numPages=%d duration=%s lState=%s}",
-		p.StorageName(), p.numFiles, p.numPages, p.Duration(), p.lState.String())
+	return fmt.Sprintf("PdfIndex{[%s index] numFiles=%d numPages=%d duration=%s blevePdf=%s}",
+		p.StorageName(), p.numFiles, p.numPages, p.Duration(), p.blevePdf.String())
 }
 
 func (p PdfIndex) Duration() string {
@@ -290,7 +308,7 @@ func FromBytes(data []byte) (PdfIndex, error) {
 // `bleveMem` contains a serialized bleve.Index.
 func (i PdfIndex) to2Bufs() (pdfMem, bleveMem []byte, err error) {
 
-	hipds, err := i.lState.ToHIPDs()
+	hipds, err := i.blevePdf.ToHIPDs()
 	if err != nil {
 		return nil, nil, err
 	}
@@ -308,10 +326,10 @@ func (i PdfIndex) to2Bufs() (pdfMem, bleveMem []byte, err error) {
 	if len(pdfMem) == 0 || len(bleveMem) == 0 {
 		common.Log.Error("Zero entry: pdfMem=%d bleveMem=%d", len(pdfMem), len(bleveMem))
 	}
-	if err := doclib.CompressInPlace(&pdfMem); err != nil {
+	if err := utils.CompressInPlace(&pdfMem); err != nil {
 		return nil, nil, err
 	}
-	if err := doclib.CompressInPlace(&bleveMem); err != nil {
+	if err := utils.CompressInPlace(&bleveMem); err != nil {
 		return nil, nil, err
 	}
 	return pdfMem, bleveMem, nil
@@ -321,10 +339,10 @@ func (i PdfIndex) to2Bufs() (pdfMem, bleveMem []byte, err error) {
 // `pdfMem` contains a serialized SerialPdfIndex.
 // `bleveMem` contains a serialized bleve.Index.
 func from2Bufs(pdfMem, bleveMem []byte) (PdfIndex, error) {
-	if err := doclib.DecompressInPlace(&pdfMem); err != nil {
+	if err := utils.DecompressInPlace(&pdfMem); err != nil {
 		return PdfIndex{}, err
 	}
-	if err := doclib.DecompressInPlace(&bleveMem); err != nil {
+	if err := utils.DecompressInPlace(&bleveMem); err != nil {
 		return PdfIndex{}, err
 	}
 
@@ -332,7 +350,7 @@ func from2Bufs(pdfMem, bleveMem []byte) (PdfIndex, error) {
 	if err != nil {
 		return PdfIndex{}, err
 	}
-	lState, err := doclib.PositionsStateFromHIPDs(spi.HIPDs)
+	blevePdf, err := doclib.BlevePdfFromHIPDs(spi.HIPDs)
 	if err != nil {
 		return PdfIndex{}, err
 	}
@@ -341,14 +359,14 @@ func from2Bufs(pdfMem, bleveMem []byte) (PdfIndex, error) {
 		return PdfIndex{}, err
 	}
 	i := PdfIndex{
-		lState:   &lState,
+		blevePdf: &blevePdf,
 		bleveIdx: bleveIdx,
 		numFiles: int(spi.NumFiles),
 		numPages: int(spi.NumPages),
 	}
-	common.Log.Trace("FromBytes: numFiles=%d numPages=%d lState=%s",
-		i.numFiles, i.numPages, *i.lState)
-	lState.Check()
+	common.Log.Trace("FromBytes: numFiles=%d numPages=%d blevePdf=%s",
+		i.numFiles, i.numPages, *i.blevePdf)
+	blevePdf.Check()
 	return i, nil
 }
 
@@ -434,4 +452,8 @@ func sliceHash(data []byte) string {
 	h := sha1.New()
 	h.Write(data)
 	return fmt.Sprintf("%x", h.Sum(nil))
+}
+
+func ExposeErrors() {
+	doclib.ExposeErrors = true
 }

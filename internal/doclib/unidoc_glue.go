@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"io"
 	"os"
-
+	"github.com/papercutsoftware/pdfsearch/internal/utils"
 	"github.com/unidoc/unipdf/v3/common"
 	"github.com/unidoc/unipdf/v3/common/license"
 	"github.com/unidoc/unipdf/v3/extractor"
@@ -165,7 +165,7 @@ func pageSizeListMm(pdfReader *pdf.PdfReader) (pageSizes [][2]float64, err error
 // PageSizeMm returns the width and height of `page` in mm.
 func PageSizeMm(page *pdf.PdfPage) (width, height float64, err error) {
 	width, height, err = PageSizePt(page)
-	return PointToMM(width), PointToMM(height), err
+	return utils.PointToMM(width), utils.PointToMM(height), err
 }
 
 // PageSizePt returns the width and height of `page` in points.
