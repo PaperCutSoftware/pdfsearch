@@ -25,7 +25,7 @@ import (
 // NOTE: This is for testing only. It doesn't make sense to access IndexPdfFilesOrReaders() with a
 //      list of opened files as this can exhaust available file handles.
 func IndexPdfFilesUsingReaders(pathList []string, persistDir string, forceCreate bool,
-	report func(string)) (*BlevePdf, bleve.Index, int, time.Duration, time.Duration, error) {
+	report func(string)) (*BlevePdf, bleve.Index, int, int, time.Duration, time.Duration, error) {
 
 	var rsList []io.ReadSeeker
 	for _, inPath := range pathList {
@@ -46,11 +46,12 @@ func IndexPdfFilesUsingReaders(pathList []string, persistDir string, forceCreate
 // If `persist` is false, the index is stored in memory.
 // If `persist` is true, the index is stored on disk in `persistDir`.
 // `report` is a supplied function that is called to report progress.
+// Returns: !@#$
 // NOTE: If you have access to your PDF files then use `pathList` and set `rsList` to nil as a long
 //     list of file handles may exhaust system resources.
 func IndexPdfFilesOrReaders(pathList []string, rsList []io.ReadSeeker, persistDir string,
 	forceCreate bool, report func(string)) (*BlevePdf, bleve.Index,
-	int, time.Duration, time.Duration, error) {
+	int, int, time.Duration, time.Duration, error) {
 
 	useReaders := len(rsList) > 0
 
@@ -59,7 +60,7 @@ func IndexPdfFilesOrReaders(pathList []string, rsList []io.ReadSeeker, persistDi
 
 	blevePdf, err := openBlevePdf(persistDir, forceCreate)
 	if err != nil {
-		return nil, nil, 0, dtPdf, dtBleve, fmt.Errorf("Could not create positions store %q. err=%v", persistDir, err)
+		return nil, nil, 0, 0, dtPdf, dtBleve, fmt.Errorf("Could not create positions store %q. err=%v", persistDir, err)
 	}
 	defer blevePdf.flush()
 	defer blevePdf.check()
@@ -68,7 +69,7 @@ func IndexPdfFilesOrReaders(pathList []string, rsList []io.ReadSeeker, persistDi
 	if len(persistDir) == 0 {
 		index, err = createBleveMemIndex()
 		if err != nil {
-			return nil, nil, 0, dtPdf, dtBleve, fmt.Errorf("Could not create Bleve memoryindex. err=%v", err)
+			return nil, nil, 0, 0, dtPdf, dtBleve, fmt.Errorf("Could not create Bleve memoryindex. err=%v", err)
 		}
 	} else {
 		indexPath := filepath.Join(persistDir, "bleve")
@@ -76,22 +77,29 @@ func IndexPdfFilesOrReaders(pathList []string, rsList []io.ReadSeeker, persistDi
 		// Create a new Bleve index.
 		index, err = createBleveDiskIndex(indexPath, forceCreate)
 		if err != nil {
-			return nil, nil, 0, dtPdf, dtBleve, fmt.Errorf("Could not create Bleve index in %q", indexPath)
+			return nil, nil, 0, 0, dtPdf, dtBleve, fmt.Errorf("Could not create Bleve index in %q", indexPath)
 		}
 	}
 
-	totalPages := 0
+	numFiles := 0
+	docCount00, err := index.DocCount()
+	if err != nil {
+		return nil, nil, 0, 0, dtPdf, dtBleve, err
+	}
+	t00 := time.Now()
 	// Add the pages of all the PDFs in `pathList` to `index`.
 	for i, inPath := range pathList {
 		readerOnly := ""
 		if useReaders {
 			readerOnly = " (readerOnly)"
 		}
-		if report != nil {
-			report(fmt.Sprintf("%3d of %d: %q%s", i+1, len(pathList), inPath, readerOnly))
-		}
 		blevePdf.check()
 		var err error
+		t0 := time.Now()
+		docCount0, err := index.DocCount()
+		if err != nil {
+			return nil, nil, 0, 0, dtPdf, dtBleve, err
+		}
 		if useReaders {
 			blevePdf.check()
 			rs := rsList[i]
@@ -105,18 +113,35 @@ func IndexPdfFilesOrReaders(pathList []string, rsList []io.ReadSeeker, persistDi
 			dtPdf += dtP
 			dtBleve += dtB
 		}
+		dt := time.Since(t0)
+		dtTotal := time.Since(t00)
 		blevePdf.check()
 		if err != nil {
-			return nil, nil, 0, dtPdf, dtBleve, fmt.Errorf("Could not index file %q", inPath)
+			continue
+			return nil, nil, 0, 0, dtPdf, dtBleve, fmt.Errorf("Could not index file %q", inPath)
 		}
 		blevePdf.check()
 		docCount, err := index.DocCount()
 		if err != nil {
-			return nil, nil, 0, dtPdf, dtBleve, err
+			return nil, nil, 0, 0, dtPdf, dtBleve, err
 		}
 		common.Log.Debug("Indexed %q. Total %d pages indexed.", inPath, docCount)
-		totalPages += int(docCount)
+		docPages := int(docCount - docCount0)
+		totalPages := int(docCount)
+		numFiles++
+		if report != nil {
+			report(fmt.Sprintf("%3d (%3d) of %d: %3d pages %3.1f sec (total: %3d pages %3.1fsec) %q%s",
+				i+1, numFiles, len(pathList),
+				docPages, dt.Seconds(),
+				totalPages, dtTotal.Seconds(),
+				inPath, readerOnly))
+		}
 	}
 
-	return blevePdf, index, totalPages, dtPdf, dtBleve, err
+	docCount, err := index.DocCount()
+	if err != nil {
+		return nil, nil, 0, 0, dtPdf, dtBleve, err
+	}
+	totalPages := int(docCount - docCount00)
+	return blevePdf, index, numFiles, totalPages, dtPdf, dtBleve, err
 }

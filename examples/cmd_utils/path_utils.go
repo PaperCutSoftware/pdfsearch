@@ -38,7 +38,6 @@ func PatternsToPaths(patternList []string, sortSize bool) ([]string, error) {
 				return pathList, err
 			}
 			if !ok {
-				common.Log.Info("Not a regular file. %#q", filename)
 				continue
 			}
 			pathList = append(pathList, filename)
@@ -74,7 +73,6 @@ func NewFileFinder(pathList []string) FileFinder {
 
 // NewFileFinderFromCorpus returns a FileFinder for all files in our main corpus directory.
 func NewFileFinderFromCorpus() (FileFinder, error) {
-	panic("NewFileFinderFromCorpus")
 	patternList := []string{"~/testdata/**/*.pdf"}
 	pathList, err := PatternsToPaths(patternList, true)
 	if err != nil {

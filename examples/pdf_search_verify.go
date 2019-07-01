@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	pdfsearch "github.com/papercutsoftware/pdfsearch"
+	"github.com/papercutsoftware/pdfsearch"
 	"github.com/papercutsoftware/pdfsearch/examples/cmd_utils"
 )
 
@@ -33,7 +33,7 @@ There are several ways of grouping files in the index from this test program:
 
 func main() {
 	var pathPattern string
-	var persistDir string
+	persistDir := filepath.Join(pdfsearch.DefaultPersistRoot, "pdf_search_veriu")
 	var serialize bool
 	var persist bool
 	var reuse bool
@@ -45,7 +45,7 @@ func main() {
 
 	flag.StringVar(&pathPattern, "f", pathPattern, "PDF file(s) to index.")
 	flag.StringVar(&outPath, "o", outPath, "Name of PDF file that will show marked up results.")
-	flag.StringVar(&persistDir, "s", pdfsearch.DefaultPersistDir, "The on-disk index is stored here.")
+	flag.StringVar(&persistDir, "s", persistDir, "The on-disk index is stored here.")
 	flag.BoolVar(&serialize, "m", serialize, "Serialize in-memory index to byte array.")
 	flag.BoolVar(&persist, "p", persist, "Store index on disk (slower but allows more PDF files).")
 	flag.BoolVar(&reuse, "r", reuse, "Reused stored index on disk for the last -p run.")
@@ -327,7 +327,7 @@ func runIndexSearch(pathList []string, term, persistDir string, serialize, persi
 			return pdfIndex, results, dt, dtIndex, err
 		}
 	} else {
-		pdfIndex, err = pdfsearch.IndexPdfFiles(pathList, persist, persistDir, report, false)
+		pdfIndex, err = pdfsearch.IndexPdfFiles(pathList, persist, persistDir, report)
 		if err != nil {
 			return pdfIndex, results, dt, dtIndex, err
 		}

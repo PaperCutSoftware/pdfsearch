@@ -12,7 +12,6 @@ import (
 
 // CleanCorpus returns `corpus` with known bad files removed.
 func CleanCorpus(corpus []string) []string {
-	panic("CleanCorpus")
 	var cleaned []string
 	for _, path := range corpus {
 		keep := true

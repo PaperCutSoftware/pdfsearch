@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	pdfsearch "github.com/papercutsoftware/pdfsearch"
+	"github.com/papercutsoftware/pdfsearch"
 	"github.com/papercutsoftware/pdfsearch/examples/cmd_utils"
 )
 
@@ -22,18 +22,11 @@ const usage = `Usage: go run pdf_search_demo.go [OPTIONS] -f "pcng-manual*.pdf" 
    1) in-memory unserialized: default
    2) in-memory serialized: -m
    3) on-disk: -p
-  There are several ways of grouping files in the index from this test program:
-   a) all files on the command line are recorded in one index: default
-   b) files are split into groups of <n> and each group is indexed and searched: -g <n>
-   c) groups of files are indexed and searched twice, in-memory serialized and unserialzed, and
-      the results are compared: -c
-   d) groups of files are indexed and searched thrice, in-memory serialized and unserialzed and
-     on-disk, and the results are compared: -cd
 `
 
 func main() {
 	var pathPattern string
-	var persistDir string
+	persistDir := filepath.Join(pdfsearch.DefaultPersistRoot, "pdf_search_demo")
 	var serialize bool
 	var persist bool
 	var reuse bool
@@ -43,7 +36,7 @@ func main() {
 
 	flag.StringVar(&pathPattern, "f", pathPattern, "PDF file(s) to index.")
 	flag.StringVar(&outPath, "o", outPath, "Name of PDF file that will show marked up results.")
-	flag.StringVar(&persistDir, "s", pdfsearch.DefaultPersistDir, "The on-disk index is stored here.")
+	flag.StringVar(&persistDir, "s", persistDir, "The on-disk index is stored here.")
 	flag.BoolVar(&serialize, "m", serialize, "Serialize in-memory index to byte array.")
 	flag.BoolVar(&persist, "p", persist, "Store index on disk (slower but allows more PDF files).")
 	flag.BoolVar(&reuse, "r", reuse, "Reused stored index on disk for the last -p run.")
@@ -109,8 +102,6 @@ func main() {
 // `term` in this index, and shows the results.
 // It also creates a marked-up PDF containing the original PDF pages with the matched terms marked
 //  and saves it to `outPath`.
-// This is the main test function. The runIndexSearch() function is calls shows you how to create an
-//  index annd search it.
 //
 //  `persistDir`: The directory the pdfsearch.PdfIndex is saved in if `persist` is true.
 //  `serialize`: Serialize in-memory pdfsearch.PdfIndex to []byte.
@@ -142,7 +133,7 @@ func runIndexSearchShow(pathList []string, term, persistDir string, serialize, p
 func runIndexSearch(pathList []string, term, persistDir string, serialize, persist, reuse bool, maxResults int) (
 	pdfIndex pdfsearch.PdfIndex, results pdfsearch.PdfMatchSet, dt, dtIndex time.Duration, err error) {
 
-	fmt.Fprintf(os.Stderr, "@@@@ %t %t %d %q\n", serialize, persist, len(pathList), pathList)
+	fmt.Fprintf(os.Stderr, "@@@@ %t %t %d files\n", serialize, persist, len(pathList))
 
 	t0 := time.Now()
 	var data []byte
@@ -165,7 +156,7 @@ func runIndexSearch(pathList []string, term, persistDir string, serialize, persi
 			return pdfIndex, results, dt, dtIndex, err
 		}
 	} else {
-		pdfIndex, err = pdfsearch.IndexPdfFiles(pathList, persist, persistDir, report, false)
+		pdfIndex, err = pdfsearch.IndexPdfFiles(pathList, persist, persistDir, report)
 		if err != nil {
 			return pdfIndex, results, dt, dtIndex, err
 		}

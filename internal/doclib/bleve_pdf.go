@@ -44,6 +44,7 @@ func (blevePdf *BlevePdf) indexDocPagesLocFile(index bleve.Index, inPath string)
 
 // indexDocPagesLocReader updates `index` and `blevePdf` with the text positions of the text in the
 // PDF file accessed by `rs`. `inPath` is the name of the PDF file.
+// !@#$ I don't understand this ^^^
 func (blevePdf *BlevePdf) indexDocPagesLocReader(index bleve.Index, inPath string,
 	rs io.ReadSeeker) (dtPdf, dtBleve time.Duration, err error) {
 
@@ -227,12 +228,12 @@ func (blevePdf BlevePdf) check() {
 			panic("BlevePdf.Check:2")
 		}
 		if _, ok := blevePdf.hashPath[h]; !ok {
-			common.Log.Info("%#q\nhashDoc  :%d %+v\nhashIndex:%d %+v",
+			common.Log.Info("%#q missing from hashPath\nhashDoc  :%d %+v\nhashIndex:%d %+v",
 				h, len(keys), keys, len(keyt), keyt)
 			panic("BlevePdf.Check:3")
 		}
 		if _, ok := blevePdf.hashDoc[h]; !ok {
-			common.Log.Info("%#q\nhashDoc  :%d %+v\nhashIndex:%d %+v",
+			common.Log.Info("%#q missing from hashDoc\nhashDoc  :%d %+v\nhashIndex:%d %+v",
 				h, len(keys), keys, len(keyt), keyt)
 			panic("BlevePdf.Check:4")
 		}
@@ -420,6 +421,7 @@ func (blevePdf *BlevePdf) extractDocPagePositionsReader(inPath string, rs io.Rea
 	return docPages, err
 }
 
+// document this
 func (blevePdf *BlevePdf) doExtract(fd fileDesc, rs io.ReadSeeker, lDoc *DocPositions) (
 	[]DocPageText, error) {
 
@@ -509,8 +511,9 @@ func (blevePdf *BlevePdf) addFile(fd fileDesc) (uint64, string, bool) {
 		blevePdf.flush()
 		blevePdf.updateTime = time.Now()
 	}
-	common.Log.Trace("addFile=%#q docIdx=%d", hash, docIdx)
-	blevePdf.check()
+	common.Log.Trace("addFile=%#q docIdx=%d dt=%.1f secs", hash, docIdx, dt.Seconds())
+
+	// blevePdf.check() !@#$ Reinstate
 	return docIdx, fd.InPath, false
 }
 
@@ -624,7 +627,7 @@ func (blevePdf *BlevePdf) createDocPositions(fd fileDesc) (*DocPositions, error)
 		return lDoc, nil
 	}
 
-	// Persistent case
+	// Persistent case.
 	if err = blevePdf.createIfNecessary(); err != nil {
 		return nil, err
 	}

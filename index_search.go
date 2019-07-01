@@ -32,7 +32,7 @@
 
  */
 
-package pdf
+package pdfsearch
 
 import (
 	"bytes"
@@ -41,7 +41,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"os"
 	"time"
 
 	"github.com/blevesearch/bleve"
@@ -67,33 +66,19 @@ func (s PdfMatchSet) Equals(t PdfMatchSet) bool {
 const (
 	// DefaultMaxResults is the default maximum number of results returned.
 	DefaultMaxResults = 10
-	// DefaultPersistDir is the default root for on-disk indexes.
-	DefaultPersistDir = "store.pdf.index"
+	// DefaultPersistRoot is the default root for on-disk indexes.
+	DefaultPersistRoot = "store.pdf"
 )
 
 // IndexPdfFiles returns an index for the PDF files in `pathList`.
 // If `persist` is false, the index is stored in memory.
 // If `persist` is true, the index is stored on disk in `persistDir`.
 // `report` is a supplied function that is called to report progress.
-// If `useReaderSeeker` is true, a slice of io.ReadSeeker is passed to the PDF processing library.
-// `useReaderSeeker` should only be used for testing the io.ReadSeeker API because it may exhaust
-//   open file handles.
-func IndexPdfFiles(pathList []string, persist bool, persistDir string, report func(string),
-	useReaderSeeker bool) (PdfIndex, error) {
+func IndexPdfFiles(pathList []string, persist bool, persistDir string, report func(string)) (
+	PdfIndex, error) {
 
-	if !useReaderSeeker {
-		return IndexPdfReaders(pathList, []io.ReadSeeker{}, persist, persistDir, report)
-	}
-
+	// A nil rsList makes IndexPdfFilesOrReaders uses paths.
 	var rsList []io.ReadSeeker
-	for _, inPath := range pathList {
-		rs, err := os.Open(inPath)
-		if err != nil {
-			return PdfIndex{}, err
-		}
-		defer rs.Close()
-		rsList = append(rsList, rs)
-	}
 	return IndexPdfReaders(pathList, rsList, persist, persistDir, report)
 }
 
@@ -122,8 +107,8 @@ func IndexPdfReaders(pathList []string, rsList []io.ReadSeeker, persist bool, pe
 	report func(string)) (PdfIndex, error) {
 
 	if !persist {
-		blevePdf, bleveIdx, numPages, dtPdf, dtBleve, err := doclib.IndexPdfFilesOrReaders(pathList,
-			rsList, "", true, report)
+		blevePdf, bleveIdx, numFiles, numPages, dtPdf, dtBleve, err := doclib.IndexPdfFilesOrReaders(
+			pathList, rsList, "", true, report)
 		if err != nil {
 			return PdfIndex{}, err
 		}
@@ -132,7 +117,7 @@ func IndexPdfReaders(pathList []string, rsList []io.ReadSeeker, persist bool, pe
 			persist:    false,
 			blevePdf:   blevePdf,
 			bleveIdx:   bleveIdx,
-			numFiles:   len(pathList),
+			numFiles:   numFiles,
 			numPages:   numPages,
 			readSeeker: len(rsList) > 0,
 			dtPdf:      dtPdf,
@@ -141,8 +126,8 @@ func IndexPdfReaders(pathList []string, rsList []io.ReadSeeker, persist bool, pe
 	}
 
 	// Persistent indexing
-	_, bleveIdx, numPages, dtPdf, dtBleve, err := doclib.IndexPdfFilesOrReaders(pathList, rsList,
-		persistDir, true, report)
+	_, bleveIdx, numFiles, numPages, dtPdf, dtBleve, err := doclib.IndexPdfFilesOrReaders(pathList,
+		rsList, persistDir, true, report)
 	if err != nil {
 		return PdfIndex{}, err
 	}
@@ -153,8 +138,9 @@ func IndexPdfReaders(pathList []string, rsList []io.ReadSeeker, persist bool, pe
 	return PdfIndex{
 		persist:    true,
 		persistDir: persistDir,
-		numFiles:   len(pathList),
+		numFiles:   numFiles,
 		numPages:   numPages,
+		readSeeker: len(rsList) > 0,
 		dtPdf:      dtPdf,
 		dtBleve:    dtBleve,
 	}, nil
@@ -235,7 +221,6 @@ type PdfIndex struct {
 	dtBleve    time.Duration    // The time it tool to build the bleve index.
 	reused     bool             // Did on-disk index exist before we ran? Helpful for debugging.
 	readSeeker bool             // Were io.ReadSeeker functions used. Helpful for debugging.
-
 }
 
 // Equals returns true if `p` contains the same information as `q`.
@@ -257,14 +242,21 @@ func (p PdfIndex) Equals(q PdfIndex) bool {
 
 // String returns a string describing `p`.
 func (p PdfIndex) String() string {
-	return fmt.Sprintf("PdfIndex{[%s index] numFiles=%d numPages=%d duration=%s blevePdf=%s}",
-		p.StorageName(), p.numFiles, p.numPages, p.Duration(), p.blevePdf.String())
+	s := p.StorageName()
+	d := p.Duration()
+	var b string
+	if p.blevePdf != nil {
+		b = fmt.Sprintf(" levePdf=%s", p.blevePdf.String())
+	}
+	return fmt.Sprintf("PdfIndex{[%s index] numFiles=%d numPages=%d Duration=%s%s}",
+		s, p.numFiles, p.numPages, d, b)
 }
 
 // Duration returns a string describing how long indexing took and where the time was spent.
 func (p PdfIndex) Duration() string {
-	return fmt.Sprintf("%.3f sec(PDF)+%.3f sec(bleve)=%.3f sec",
-		p.dtPdf.Seconds(), p.dtBleve.Seconds(), p.dtPdf.Seconds()+p.dtBleve.Seconds())
+	return fmt.Sprintf("%.3f sec(%.3f PDF, %.3f bleve)",
+		p.dtPdf.Seconds()+p.dtBleve.Seconds(),
+		p.dtPdf.Seconds(), p.dtBleve.Seconds())
 }
 
 func (p PdfIndex) NumFiles() int {
@@ -290,8 +282,8 @@ func (p PdfIndex) StorageName() string {
 }
 
 // ToBytes serializes `i` to a byte array.
-func (i PdfIndex) ToBytes() ([]byte, error) {
-	pdfMem, bleveMem, err := i.to2Bufs()
+func (p PdfIndex) ToBytes() ([]byte, error) {
+	pdfMem, bleveMem, err := p.to2Bufs()
 	if err != nil {
 		return nil, err
 	}
@@ -310,19 +302,19 @@ func FromBytes(data []byte) (PdfIndex, error) {
 // to2Bufs serializes `i` to buffers `pdfMem` and `bleveMem`.
 // `pdfMem` contains a serialized SerialPdfIndex.
 // `bleveMem` contains a serialized bleve.Index.
-func (i PdfIndex) to2Bufs() (pdfMem, bleveMem []byte, err error) {
+func (p PdfIndex) to2Bufs() (pdfMem, bleveMem []byte, err error) {
 
-	hipds, err := i.blevePdf.ToHIPDs()
+	hipds, err := p.blevePdf.ToHIPDs()
 	if err != nil {
 		return nil, nil, err
 	}
-	bleveMem, err = doclib.ExportBleveMem(i.bleveIdx)
+	bleveMem, err = doclib.ExportBleveMem(p.bleveIdx)
 	if err != nil {
 		return nil, nil, err
 	}
 	spi := serial.SerialPdfIndex{
-		NumFiles: uint32(i.numFiles),
-		NumPages: uint32(i.numPages),
+		NumFiles: uint32(p.numFiles),
+		NumPages: uint32(p.numPages),
 		HIPDs:    hipds,
 	}
 	pdfMem = serial.WriteSerialPdfIndex(spi)

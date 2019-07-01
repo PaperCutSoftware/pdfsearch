@@ -7,7 +7,7 @@
  * or just start with 0,0 and increase to move right, down.
  */
 
-package pdf
+package pdfsearch
 
 import (
 	"fmt"

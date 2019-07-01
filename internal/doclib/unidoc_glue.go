@@ -243,7 +243,8 @@ func CreatePDFPageProcessorReader(inPath string, rs io.ReadSeeker) (*PDFPageProc
 
 	p.pdfReader, err = PdfOpenReader(rs, true)
 	if err != nil {
-		common.Log.Error("CreatePDFPageProcessor: PdfOpenReader failed. inPath=%q. err=%v", inPath, err)
+		common.Log.Debug("CreatePDFPageProcessor: PdfOpenReader failed. inPath=%q. err=%v",
+			inPath, err)
 		return &p, err
 	}
 	return &p, nil
