@@ -409,9 +409,9 @@ func (blevePdf *BlevePdf) extractDocPagePositionsReader(inPath string, rs io.Rea
 	// The DocPositions is added near the end of blevePdf.doExtract():
 	//		See blevePdf.hashDoc[fd.Hash] = lDoc
 	// while other maps are updated earlier in blevePdf.addFile()
-	// Therefore if there is an error and early exit from State.doExtract(), the blevePdf maps will be
-	// inconsistent.
-	// I am ashamed of this hack.
+	// Therefore if there is an error and early exit from State.doExtract(), the blevePdf maps will
+	// be inconsistent.
+	// I am ashamed of this hack. TODO: Fix it!
 	// FIXME: Add a function that updates all the blevePdf maps atomically. !@#$
 	docPages, err := blevePdf.doExtract(fd, rs, lDoc)
 	if err != nil {
@@ -611,7 +611,6 @@ func (blevePdf *BlevePdf) docPagePositions(docIdx uint64, pageIdx uint32) (
 // In a persistent `blevePdf`, necessary directories are created and files are opened.
 func (blevePdf *BlevePdf) createDocPositions(fd fileDesc) (*DocPositions, error) {
 	common.Log.Debug("createDocPositions: blevePdf.positionsDir=%q", blevePdf.positionsDir())
-
 	docIdx, inPath, exists := blevePdf.addFile(fd)
 	if exists {
 		common.Log.Error("createDocPositions: %q is the same PDF as %q. Ignoring",

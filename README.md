@@ -1,6 +1,5 @@
 Pure Go Full Text Search of PDF Files
 =====================================
-**NOTE: This is currently waiting on [UniDoc](https://unidoc.io/) to merge a [pull request](https://github.com/unidoc/unipdf/pull/75). We expect this to be completed before the end of June.**
 
 This library implements full text search for PDF files.
 * The public APIs are in [index_search.go](index_search.go).
@@ -8,7 +7,6 @@ This library implements full text search for PDF files.
   that demonstrates these APIs.
 * [examples/pdf_search_verify.go](examples/pdf_search_verify.go) is a command line program
   that verifies the consistency of these  APIs.
-
 
 Installation
 ---------------------

@@ -69,7 +69,7 @@ func runIndexShow(pathList []string, persistDir string) error {
 func runIndex(pathList []string, persistDir string) (
 	pdfIndex pdfsearch.PdfIndex, dt time.Duration, err error) {
 
-	fmt.Fprintf(os.Stderr, "@@@@ %d files\n", len(pathList))
+	fmt.Fprintf(os.Stderr, "@@@@ %d files\n", len(pathList)) // TODO: Remove @@@@
 
 	t0 := time.Now()
 

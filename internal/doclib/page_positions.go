@@ -46,10 +46,10 @@ func (dpl PagePositions) Empty() bool {
 	return len(dpl.locations) == 0
 }
 
-// PagePositionsFromLocations converts []extractor.TextLocation `locations` to a more compact
+// PagePositionsFromLocations converts []extractor.TextMark `locations` to a more compact
 // PagePositions.
 // We do this because PagePositions is stored in our index which we want to be small.
-func PagePositionsFromLocations(locations []extractor.TextLocation) PagePositions {
+func PagePositionsFromLocations(locations []extractor.TextMark) PagePositions {
 	var dpl PagePositions
 	for _, uloc := range locations {
 		loc := fromExtractorLocation(uloc)
@@ -58,8 +58,8 @@ func PagePositionsFromLocations(locations []extractor.TextLocation) PagePosition
 	return dpl
 }
 
-// fromExtractorLocation converts extractor.TextLocation `uloc` to a more compact serial.OffsetBBox.
-func fromExtractorLocation(uloc extractor.TextLocation) serial.OffsetBBox {
+// fromExtractorLocation converts extractor.TextMark `uloc` to a more compact serial.OffsetBBox.
+func fromExtractorLocation(uloc extractor.TextMark) serial.OffsetBBox {
 	b := uloc.BBox
 	return serial.OffsetBBox{
 		Offset: uint32(uloc.Offset),

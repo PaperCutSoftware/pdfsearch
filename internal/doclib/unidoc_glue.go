@@ -188,13 +188,15 @@ func ExtractPageText(page *pdf.PdfPage) (string, error) {
 }
 
 // ExtractPageTextLocation returns the locations of text on page `page`.
-func ExtractPageTextLocation(page *pdf.PdfPage) (string, []extractor.TextLocation, error) {
+func ExtractPageTextLocation(page *pdf.PdfPage) (string, []extractor.TextMark, error) {
+	// TODO: Remove ExtractPageTextObject layer
 	pageText, err := ExtractPageTextObject(page)
 	if err != nil {
 		return "", nil, err
 	}
-	text, locations := pageText.ToTextLocation()
-	return text, locations, nil
+	text := pageText.Text()
+	marks := pageText.Marks().Elements()
+	return text, marks, nil
 }
 
 // ExtractPageTextObject returns the PageText on page `page`.
@@ -321,7 +323,7 @@ func processPDFPages(inPath string, pdfReader *pdf.PdfReader,
 
 	common.Log.Debug("processPDFPages: inPath=%q numPages=%d", inPath, numPages)
 
-	for pageNum := uint32(1); pageNum < uint32(numPages); pageNum++ {
+	for pageNum := uint32(1); pageNum <= uint32(numPages); pageNum++ {
 		page, err := pdfReader.GetPage(int(pageNum))
 		if err != nil {
 			return err

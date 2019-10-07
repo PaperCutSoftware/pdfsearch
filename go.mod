@@ -16,6 +16,6 @@ require (
 	github.com/golang/protobuf v1.3.1 // indirect
 	github.com/google/flatbuffers v1.11.0
 	github.com/steveyen/gtreap v0.0.0-20150807155958-0abe01ef9be2 // indirect
-	github.com/unidoc/unipdf/v3 v3.0.2
+	github.com/unidoc/unipdf/v3 v3.1.1
 	golang.org/x/net v0.0.0-20190620200207-3b0461eec859 // indirect
 )
