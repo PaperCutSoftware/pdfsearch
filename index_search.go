@@ -67,7 +67,7 @@ const (
 	// DefaultMaxResults is the default maximum number of results returned.
 	DefaultMaxResults = 10
 	// DefaultPersistRoot is the default root for on-disk indexes.
-	DefaultPersistRoot = "store.pdf"
+	DefaultPersistRoot = "pdf.store"
 )
 
 // IndexPdfFiles returns an index for the PDF files in `pathList`.
@@ -199,7 +199,11 @@ func MarkupPdfResults(results PdfMatchSet, outPath string) error {
 		if dpl.Empty() {
 			return errors.New("no Locations")
 		}
-		bbox := dpl.BBox(m.Start, m.End)
+		bbox, ok := dpl.BBox(m.Start, m.End)
+		if !ok {
+			common.Log.Info("No bbox for m=%s", m)
+			continue
+		}
 		extractList.AddRect(inPath, pageNum, bbox)
 	}
 	return extractList.SaveOutputPdf(outPath)

@@ -178,38 +178,17 @@ func PageSizePt(page *pdf.PdfPage) (width, height float64, err error) {
 	return b.Urx - b.Llx, b.Ury - b.Lly, nil
 }
 
-// ExtractPageText returns the text on page `page`.
-func ExtractPageText(page *pdf.PdfPage) (string, error) {
-	pageText, err := ExtractPageTextObject(page)
-	if err != nil {
-		return "", err
-	}
-	return pageText.ToText(), nil
-}
-
-// ExtractPageTextLocation returns the locations of text on page `page`.
-func ExtractPageTextLocation(page *pdf.PdfPage) (string, []extractor.TextMark, error) {
-	// TODO: Remove ExtractPageTextObject layer
-	pageText, err := ExtractPageTextObject(page)
+// ExtractPageTextMarks returns the extracted text and corresponding TextMarks on page `page`.
+func ExtractPageTextMarks(page *pdf.PdfPage) (string, *extractor.TextMarkArray, error) {
+	ex, err := extractor.New(page)
 	if err != nil {
 		return "", nil, err
 	}
-	text := pageText.Text()
-	marks := pageText.Marks().Elements()
-	return text, marks, nil
-}
-
-// ExtractPageTextObject returns the PageText on page `page`.
-// PageText is an opaque UniDoc struct that describes the text marks on a PDF page.
-// extractDocPages uses UniDoc to extract the text from all pages in PDF file `inPath` as a slice
-// of PdfPage.
-func ExtractPageTextObject(page *pdf.PdfPage) (*extractor.PageText, error) {
-	ex, err := extractor.New(page)
-	if err != nil {
-		return nil, err
-	}
 	pageText, _, _, err := ex.ExtractPageText()
-	return pageText, err
+	if err != nil {
+		return "", nil, err
+	}
+	return pageText.Text(), pageText.Marks(), nil
 }
 
 // PDFPageProcessor is used for processing a PDF file one page at a time.
@@ -270,8 +249,8 @@ func (p PDFPageProcessor) NumPages() (uint32, error) {
 
 // Process runs `processPage` on every page in PDF file `p.inPath`.
 // It can recover from errors in the libraries it calls if `ExposeErrors` is false.
-func (p *PDFPageProcessor) Process(processPage func(pageNum uint32, page *pdf.PdfPage) error) error {
-	var err error
+func (p *PDFPageProcessor) Process(processPage func(pageNum uint32, page *pdf.PdfPage) error) (
+	err error) {
 	if !ExposeErrors {
 		defer func() {
 			if r := recover(); r != nil {

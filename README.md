@@ -73,3 +73,6 @@ Cleanup validate() Check()
 Simple command line program
 Remove panic()'s
 Remove !@#$'s
+Remove uint32 etc
+Remove abstraction layers, especially unidoc_glue.go
+Get free text search working

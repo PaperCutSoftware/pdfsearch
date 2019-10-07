@@ -1,9 +1,5 @@
 // Copyright 2019 PaperCut Software International Pty Ltd. All rights reserved.
 
-/*
- *  This source implements the main function IndexPdfReaders().
- * IndexPdfFiles() is a convenience function that opens files and calls IndexPdfReaders().
- */
 package doclib
 
 import (
@@ -23,7 +19,7 @@ import (
 	pdf "github.com/unidoc/unipdf/v3/model"
 )
 
-// IDText is what bleve sees for each page.
+// IDText is what bleve sees for each page of a PDF file.
 type IDText struct {
 	// ID identifies the document + page index.
 	ID string
@@ -124,12 +120,11 @@ func (blevePdf *BlevePdf) indexDocPagesLocReader(index bleve.Index, inPath strin
 
 const storeUpdatePeriodSec = 60.0
 
-// BlevePdf links a bleve index over texts to the PDF files that the texts were extracted
-// from.
-// It does using the hashDoc map of {file hash: DocPositions} For each file, the DocPositions maps
-// extracted text to the location on of text on the PDF page it was extracted from
+// BlevePdf links a bleve index over texts to the PDF files that the texts were extracted from,
+// using the hashDoc {file hash: DocPositions} map. For each file, the DocPositions maps
+// extracted text to the location on of text on the PDF page it was extracted from.
 // A BlevePdf can be optionally saved to and retreived from disk, in which case isMem()
-// returns true.
+// returns false.
 type BlevePdf struct {
 	root       string                   // Top level directory of the data saved to disk. "" for in-memory.
 	fdList     []fileDesc               // List of fileDesc for PDFs the indexed data was extracted from.
@@ -140,16 +135,16 @@ type BlevePdf struct {
 	updateTime time.Time                // Time of last flush()
 }
 
-// Equals returns true if `l` contains the same information as `m`.
-func (blevePdf *BlevePdf) Equals(m *BlevePdf) bool {
+// Equals returns true if `blevePdf` contains the same information as `other`.
+func (blevePdf *BlevePdf) Equals(other *BlevePdf) bool {
 	for hash, ldoc := range blevePdf.hashDoc {
-		mdoc, ok := m.hashDoc[hash]
+		odoc, ok := other.hashDoc[hash]
 		if !ok {
 			common.Log.Error("BlevePdf.Equal.hash=%#q", hash)
 			return false
 		}
-		if !ldoc.Equals(mdoc) {
-			common.Log.Error("BlevePdf.Equal.doc hash=%#q\n%s\n%s", hash, ldoc, mdoc)
+		if !ldoc.Equals(odoc) {
+			common.Log.Error("BlevePdf.Equal.doc hash=%#q\n%s\n%s", hash, ldoc, odoc)
 			return false
 		}
 	}
@@ -168,12 +163,13 @@ func (blevePdf BlevePdf) String() string {
 	return fmt.Sprintf("{BlevePdf: %s}", strings.Join(parts, "\t"))
 }
 
-// Len returns the number of reachable documents (and their corresponding PDF file contents) in `l`.
+// Len returns the number of reachable documents (and their corresponding PDF file contents) in
+// `blevePdf`.
 func (blevePdf BlevePdf) Len() int {
 	return len(blevePdf.hashIndex)
 }
 
-// isMem returns true if `l` is stored in memory or false if `l` is stored on disk.
+// isMem returns true if `blevePdf` is stored in memory or false if it is stored on disk.
 func (blevePdf BlevePdf) isMem() bool {
 	return blevePdf.root == ""
 }
@@ -194,7 +190,7 @@ func (blevePdf *BlevePdf) remove(hash string) {
 // CheckConsistency should be set true to regularly check the BlevePdf consistency.
 var CheckConsistency = false
 
-// check() performs a consistency checl on a BlevePdf.
+// check() performs a consistency check on a BlevePdf.
 func (blevePdf BlevePdf) check() {
 	if !CheckConsistency {
 		return
@@ -442,9 +438,9 @@ func (blevePdf *BlevePdf) doExtract(fd fileDesc, rs io.ReadSeeker, lDoc *DocPosi
 
 	err = pdfPageProcessor.Process(func(pageNum uint32, page *pdf.PdfPage) error {
 		common.Log.Trace("doExtract: page %d of %d", pageNum, numPages)
-		text, locations, err := ExtractPageTextLocation(page)
+		text, textMarks, err := ExtractPageTextMarks(page)
 		if err != nil {
-			common.Log.Error("ExtractDocPagePositions: ExtractPageTextLocation failed. "+
+			common.Log.Error("ExtractDocPagePositions: ExtractPageTextMarks failed. "+
 				"%s pageNum=%d err=%v", fd, pageNum, err)
 			return nil // !@#$ Skip errors for now
 		}
@@ -453,7 +449,7 @@ func (blevePdf *BlevePdf) doExtract(fd fileDesc, rs io.ReadSeeker, lDoc *DocPosi
 			return nil
 		}
 
-		dpl := PagePositionsFromLocations(locations)
+		dpl := PagePositionsFromTextMarks(textMarks)
 		pageIdx, err := lDoc.AddDocPage(pageNum, dpl, text)
 		if err != nil {
 			return err

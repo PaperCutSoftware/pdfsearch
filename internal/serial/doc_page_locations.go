@@ -8,6 +8,7 @@ import (
 	flatbuffers "github.com/google/flatbuffers/go"
 	"github.com/papercutsoftware/pdfsearch/internal/serial/locations"
 	"github.com/unidoc/unipdf/v3/common"
+	"github.com/unidoc/unipdf/v3/model"
 )
 
 // OffsetBBox describes the location of a text fragment on a PDF page.
@@ -18,6 +19,15 @@ import (
 type OffsetBBox struct {
 	Offset             uint32  // Offset of the text fragment in extracted page text.
 	Llx, Lly, Urx, Ury float32 // Bounding box of fragment on PDF page.
+}
+
+func (t OffsetBBox) BBox() model.PdfRectangle {
+	return model.PdfRectangle{
+		Llx: float64(t.Llx),
+		Lly: float64(t.Lly),
+		Urx: float64(t.Urx),
+		Ury: float64(t.Ury),
+	}
 }
 
 // Equals returns true if `t` has the same text interval and bounding box as `u`.

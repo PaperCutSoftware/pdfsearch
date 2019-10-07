@@ -70,8 +70,7 @@ func ExportBleveMem(index bleve.Index) ([]byte, error) {
 
 // ImportBleveMem deserializes `data` to a byte bleve.Index.
 func ImportBleveMem(data []byte) (bleve.Index, error) {
-
-	index, err := bleve.NewUsing(
+	return bleve.NewUsing(
 		"",
 		bleve.NewIndexMapping(),
 		bleve.Config.DefaultIndexType,
@@ -80,6 +79,4 @@ func ImportBleveMem(data []byte) (bleve.Index, error) {
 			"kvStoreName_actual": btreap.Name,
 			"preloadmem":         data,
 		})
-
-	return index, err
 }

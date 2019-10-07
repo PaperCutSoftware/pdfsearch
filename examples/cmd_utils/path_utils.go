@@ -218,7 +218,6 @@ var FileHashSize = 10
 
 // FileHash returns a hex encoded string of the SHA-256 digest of the contents of file `filename`.
 func FileHash(filename string) (string, error) {
-	panic("FileHash")
 	b, err := ioutil.ReadFile(filename)
 	if err != nil {
 		return "", err

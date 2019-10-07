@@ -212,7 +212,8 @@ func (s PdfMatchSet) String() string {
 	return sb.String()
 }
 
-// Files returns the unique file names in `s`.
+// Files returns the PDF file names names in PdfMatchSet `s`. These are all the PDF that contained
+// at least one match of the search term.
 func (s PdfMatchSet) Files() []string {
 	fileSet := map[string]struct{}{}
 	var files []string
@@ -235,8 +236,8 @@ func (p PdfMatch) String() string {
 }
 
 // hitToPdfMatch returns the PdfMatch corresponding the bleve DocumentMatch `hit`.
-// The returned PdfMatch contains information that is not in `hit` that is looked up in `blevePdf`.
-// We purposely try to keep `hit` small to improve bleve indexing performance and to reduce the
+// The returned PdfMatch also contains information that is not in `hit` that is looked up in `blevePdf`.
+// We purposely try to keep `hit` small to improve bleve indexing speed and to reduce the
 // bleve index size.
 func (blevePdf *BlevePdf) hitToPdfMatch(hit *search.DocumentMatch) (PdfMatch, error) {
 	m, err := hitToBleveMatch(hit)
@@ -266,14 +267,14 @@ func (blevePdf *BlevePdf) hitToPdfMatch(hit *search.DocumentMatch) (PdfMatch, er
 	}, nil
 }
 
+// String() returns a string describing `m`.
 func (m bleveMatch) String() string {
 	return fmt.Sprintf("docIdx=%d pageIdx=%d (score=%.3f)\n%s",
 		m.docIdx, m.pageIdx, m.Score, m.Fragment)
 }
 
-// hitToBleveMatch returns a bleveMatch filled with the information in `hit` which comes from bleve.
+// hitToBleveMatch returns a bleveMatch filled with the information in `hit` that comes from bleve.
 func hitToBleveMatch(hit *search.DocumentMatch) (bleveMatch, error) {
-
 	docIdx, pageIdx, err := decodeID(hit.ID)
 	if err != nil {
 		return bleveMatch{}, err
