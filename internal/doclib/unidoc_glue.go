@@ -10,11 +10,10 @@ import (
 	"io"
 	"os"
 
-	"github.com/papercutsoftware/pdfsearch/internal/utils"
 	"github.com/unidoc/unipdf/v3/common"
 	"github.com/unidoc/unipdf/v3/common/license"
 	"github.com/unidoc/unipdf/v3/extractor"
-	pdf "github.com/unidoc/unipdf/v3/model"
+	"github.com/unidoc/unipdf/v3/model"
 )
 
 var (
@@ -43,7 +42,7 @@ func init() {
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error loading UniDoc license: %v\n", err)
 	}
-	pdf.SetPdfCreator(creatorName)
+	model.SetPdfCreator(creatorName)
 
 	flag.BoolVar(&Debug, "d", false, "Print debugging information.")
 	flag.BoolVar(&Trace, "e", false, "Print detailed debugging information.")
@@ -62,32 +61,43 @@ func init() {
 }
 
 // PdfOpenFile opens PDF file `inPath` and attempts to handle null encryption schemes.
-// If `lazy` is true, a lazy PDF reader is opened.
-func PdfOpenFile(inPath string, lazy bool) (*pdf.PdfReader, error) {
-
+func PdfOpenFile(inPath string) (*model.PdfReader, error) {
 	f, err := os.Open(inPath)
 	if err != nil {
 		return nil, err
 	}
 	defer f.Close()
-	return PdfOpenReader(f, lazy)
+	return PdfOpenReader(f, false)
+}
+
+// PdfOpenFile opens PDF file `inPath` lazily and attempts to handle null encryption schemes.
+// Caller must close the returned file handle if there are no errors.
+func PdfOpenFileLazy(inPath string) (*os.File, *model.PdfReader, error) {
+	f, err := os.Open(inPath)
+	if err != nil {
+		return nil, nil, err
+	}
+	pdfReader, err := PdfOpenReader(f, true)
+	if err != nil {
+		f.Close()
+		return nil, nil, err
+	}
+	return f, pdfReader, nil
 }
 
 // PdfOpenReader opens the PDF file accessed by `rs` and attempts to handle null encryption schemes.
 // If `lazy` is true, a lazy PDF reader is opened.
-func PdfOpenReader(rs io.ReadSeeker, lazy bool) (*pdf.PdfReader, error) {
-
-	var pdfReader *pdf.PdfReader
+func PdfOpenReader(rs io.ReadSeeker, lazy bool) (*model.PdfReader, error) {
+	var pdfReader *model.PdfReader
 	var err error
 	if lazy {
-		pdfReader, err = pdf.NewPdfReaderLazy(rs)
+		pdfReader, err = model.NewPdfReaderLazy(rs)
 	} else {
-		pdfReader, err = pdf.NewPdfReader(rs)
+		pdfReader, err = model.NewPdfReader(rs)
 	}
 	if err != nil {
 		return nil, err
 	}
-
 	isEncrypted, err := pdfReader.IsEncrypted()
 	if err != nil {
 		return nil, err
@@ -101,76 +111,8 @@ func PdfOpenReader(rs io.ReadSeeker, lazy bool) (*pdf.PdfReader, error) {
 	return pdfReader, nil
 }
 
-// PdfOpenDescribe returns numPages, width, height for PDF file `inPath`.
-// Width and height are in mm.
-func PdfOpenDescribe(inPath string) (numPages int, width, height float64, err error) {
-	pdfReader, err := PdfOpenFile(inPath, true)
-	if err != nil {
-		return 0, 0.0, 0.0, err
-	}
-	return Describe(pdfReader)
-}
-
-// Describe returns numPages, width, height for the PDF in `pdfReader`.
-// Width and height are in mm.
-func Describe(pdfReader *pdf.PdfReader) (numPages int, width, height float64, err error) {
-	pageSizes, err := pageSizeListMm(pdfReader)
-	if err != nil {
-		return
-	}
-	numPages = len(pageSizes)
-	width, height = DocPageSize(pageSizes)
-	return
-}
-
-// DocPageSize returns the width and height of a document whose page sizes are `pageSizes`.
-// This is a single source of truth for our definition of document page size.
-// Currently the document width is defined as the longest page width in the document.
-func DocPageSize(pageSizes [][2]float64) (w, h float64) {
-	for _, wh := range pageSizes {
-		if wh[0] > w {
-			w = wh[0]
-		}
-		if wh[1] > h {
-			h = wh[1]
-		}
-	}
-	return
-}
-
-// pageSizeListMm returns a slice of the pages sizes for the pages `pdfReader`.
-// width and height are in mm.
-func pageSizeListMm(pdfReader *pdf.PdfReader) (pageSizes [][2]float64, err error) {
-	numPages, err := pdfReader.GetNumPages()
-	if err != nil {
-		return
-	}
-
-	for i := 0; i < numPages; i++ {
-		pageNum := i + 1
-		page := pdfReader.PageList[i]
-		common.Log.Debug("==========================================================")
-		common.Log.Debug("page %d", pageNum)
-		var w, h float64
-		w, h, err = PageSizeMm(page)
-		if err != nil {
-			return
-		}
-		size := [2]float64{w, h}
-		pageSizes = append(pageSizes, size)
-	}
-
-	return
-}
-
-// PageSizeMm returns the width and height of `page` in mm.
-func PageSizeMm(page *pdf.PdfPage) (width, height float64, err error) {
-	width, height, err = PageSizePt(page)
-	return utils.PointToMM(width), utils.PointToMM(height), err
-}
-
 // PageSizePt returns the width and height of `page` in points.
-func PageSizePt(page *pdf.PdfPage) (width, height float64, err error) {
+func PageSizePt(page *model.PdfPage) (width, height float64, err error) {
 	b, err := page.GetMediaBox()
 	if err != nil {
 		return 0, 0, err
@@ -179,7 +121,7 @@ func PageSizePt(page *pdf.PdfPage) (width, height float64, err error) {
 }
 
 // ExtractPageTextMarks returns the extracted text and corresponding TextMarks on page `page`.
-func ExtractPageTextMarks(page *pdf.PdfPage) (string, *extractor.TextMarkArray, error) {
+func ExtractPageTextMarks(page *model.PdfPage) (string, *extractor.TextMarkArray, error) {
 	ex, err := extractor.New(page)
 	if err != nil {
 		return "", nil, err
@@ -196,39 +138,38 @@ func ExtractPageTextMarks(page *pdf.PdfPage) (string, *extractor.TextMarkArray, 
 type PDFPageProcessor struct {
 	inPath    string
 	pdfFile   *os.File
-	pdfReader *pdf.PdfReader
+	pdfReader *model.PdfReader
 }
 
 // CreatePDFPageProcessorFile creates a PDFPageProcessor for reading the PDF file `inPath`.
 func CreatePDFPageProcessorFile(inPath string) (*PDFPageProcessor, error) {
-	pdfFile, err := os.Open(inPath)
+	f, err := os.Open(inPath)
 	if err != nil {
 		common.Log.Error("CreatePDFPageProcessorFile: Could not open inPath=%q. err=%v", inPath, err)
 		return nil, err
 	}
-	p, err := CreatePDFPageProcessorReader(inPath, pdfFile)
+	processor, err := CreatePDFPageProcessorReader(inPath, f)
 	if err != nil {
-		pdfFile.Close()
+		f.Close()
 		return nil, err
 	}
-	p.pdfFile = pdfFile
-	return p, err
+	processor.pdfFile = f
+	return processor, err
 }
 
 // CreatePDFPageProcessorReader creates a  PDFPageProcessor for reading the PDF file referenced by
 // `rs`.
 // `inPath` is provided for logging only but it is expected to be the path referenced by `rs`.
 func CreatePDFPageProcessorReader(inPath string, rs io.ReadSeeker) (*PDFPageProcessor, error) {
-	p := PDFPageProcessor{inPath: inPath}
+	processor := PDFPageProcessor{inPath: inPath}
 	var err error
-
-	p.pdfReader, err = PdfOpenReader(rs, true)
+	processor.pdfReader, err = PdfOpenReader(rs, true)
 	if err != nil {
 		common.Log.Debug("CreatePDFPageProcessor: PdfOpenReader failed. inPath=%q. err=%v",
 			inPath, err)
-		return &p, err
+		return nil, err
 	}
-	return &p, nil
+	return &processor, nil
 }
 
 // Close closes file handles opened by CreatePDFPageProcessorFile.
@@ -249,7 +190,7 @@ func (p PDFPageProcessor) NumPages() (uint32, error) {
 
 // Process runs `processPage` on every page in PDF file `p.inPath`.
 // It can recover from errors in the libraries it calls if `ExposeErrors` is false.
-func (p *PDFPageProcessor) Process(processPage func(pageNum uint32, page *pdf.PdfPage) error) (
+func (p *PDFPageProcessor) Process(processPage func(pageNum uint32, page *model.PdfPage) error) (
 	err error) {
 	if !ExposeErrors {
 		defer func() {
@@ -270,7 +211,7 @@ func (p *PDFPageProcessor) Process(processPage func(pageNum uint32, page *pdf.Pd
 
 // ProcessPDFPagesFile runs `processPage` on every page in PDF file `inPath`.
 // It is a convenience function.
-func ProcessPDFPagesFile(inPath string, processPage func(pageNum uint32, page *pdf.PdfPage) error) error {
+func ProcessPDFPagesFile(inPath string, processPage func(pageNum uint32, page *model.PdfPage) error) error {
 	p, err := CreatePDFPageProcessorFile(inPath)
 	if err != nil {
 		return err
@@ -282,7 +223,7 @@ func ProcessPDFPagesFile(inPath string, processPage func(pageNum uint32, page *p
 // ProcessPDFPagesReader runs `processPage` on every page in PDF file opened in `rs`.
 // It is a convenience function.
 func ProcessPDFPagesReader(inPath string, rs io.ReadSeeker,
-	processPage func(pageNum uint32, page *pdf.PdfPage) error) error {
+	processPage func(pageNum uint32, page *model.PdfPage) error) error {
 
 	p, err := CreatePDFPageProcessorReader(inPath, rs)
 	if err != nil {
@@ -292,8 +233,8 @@ func ProcessPDFPagesReader(inPath string, rs io.ReadSeeker,
 }
 
 // processPDFPages runs `processPage` on every page in PDF file `inPath`.
-func processPDFPages(inPath string, pdfReader *pdf.PdfReader,
-	processPage func(pageNum uint32, page *pdf.PdfPage) error) error {
+func processPDFPages(inPath string, pdfReader *model.PdfReader,
+	processPage func(pageNum uint32, page *model.PdfPage) error) error {
 
 	numPages, err := pdfReader.GetNumPages()
 	if err != nil {

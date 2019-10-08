@@ -7,7 +7,8 @@ import (
 	"testing"
 )
 
-func TestCompress(t *testing.T) {
+// TesUnits checks that f(g(x)) == x where g and f are inverses for all the functions in units.
+func TesUnits(t *testing.T) {
 	for y := -100.0; y <= 100.0; y += 1.0 {
 		x := math.Exp(y)
 		tol := math.Max(x/100.0, 1e10)
@@ -18,6 +19,7 @@ func TestCompress(t *testing.T) {
 	}
 }
 
+// unitsMmPtMm checks that PointToMM(MMToPoint(x)) == x.
 func unitsMmPtMm(t *testing.T, x, tol float64) {
 	pt := MMToPoint(x)
 	mm := PointToMM(pt)
@@ -26,6 +28,7 @@ func unitsMmPtMm(t *testing.T, x, tol float64) {
 	}
 }
 
+// unitsPtMmPt checks that  MMToPoint(PointToMM(x)) == x.
 func unitsPtMmPt(t *testing.T, x, tol float64) {
 	mm := PointToMM(x)
 	pt := MMToPoint(mm)

@@ -28,7 +28,7 @@ func TestBleveMemIndex(t *testing.T) {
 // `docLen` and some containing the substring `term`, then checks that a query on the index for
 // `term` returns the correct documents.
 func testMem(t *testing.T, term string, numDocs, docLen int) {
-	common.Log.Info("testMem: numDocs=%d docLen=%d -> size=%d term=%q",
+	common.Log.Debug("testMem: numDocs=%d docLen=%d -> size=%d term=%q",
 		numDocs, docLen, numDocs*docLen, term)
 	common.Log.Debug("allWords=%d %q", len(allWords), allWords)
 
@@ -42,11 +42,11 @@ func testMem(t *testing.T, term string, numDocs, docLen int) {
 	// }
 
 	srIDs := searchResultIDs(sr)
-	common.Log.Info("matchedIDs=%d", len(matchedIDs))
+	common.Log.Debug("matchedIDs=%d", len(matchedIDs))
 	for i, id := range srIDs {
 		common.Log.Debug("%4d: %#q", i, id)
 	}
-	common.Log.Info("hits=%d", len(srIDs))
+	common.Log.Debug("hits=%d", len(srIDs))
 	for i, id := range srIDs {
 		common.Log.Debug("%4d: %#q", i, id)
 	}

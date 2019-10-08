@@ -16,7 +16,7 @@ import (
 	"github.com/papercutsoftware/pdfsearch/internal/serial"
 	"github.com/papercutsoftware/pdfsearch/internal/utils"
 	"github.com/unidoc/unipdf/v3/common"
-	pdf "github.com/unidoc/unipdf/v3/model"
+	"github.com/unidoc/unipdf/v3/model"
 )
 
 // IDText is what bleve sees for each page of a PDF file.
@@ -436,7 +436,7 @@ func (blevePdf *BlevePdf) doExtract(fd fileDesc, rs io.ReadSeeker, lDoc *DocPosi
 
 	var docPages []DocPageText
 
-	err = pdfPageProcessor.Process(func(pageNum uint32, page *pdf.PdfPage) error {
+	err = pdfPageProcessor.Process(func(pageNum uint32, page *model.PdfPage) error {
 		common.Log.Trace("doExtract: page %d of %d", pageNum, numPages)
 		text, textMarks, err := ExtractPageTextMarks(page)
 		if err != nil {

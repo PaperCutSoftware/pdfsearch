@@ -108,12 +108,8 @@ func (loc ImageLocation) coords(w, h float64) (float64, float64) {
 // The image's aspect ratio is maintained.
 func AddImageToPdf(rs io.ReadSeeker, w io.Writer, image goimage.Image, url string, pageNum int,
 	loc ImageLocation) error {
-
 	width := utils.MMToPoint(loc.WidthMm)
 	height := utils.MMToPoint(loc.HeightMm)
-
-	// b := img.Bounds()
-	// fmt.Printf(" *** img: %d x %d pixels\n", b.Max.X, b.Max.Y)
 
 	// Read the input PDF file.
 	pdfReader, err := doclib.PdfOpenReader(rs, true)
@@ -156,8 +152,6 @@ func AddImageToPdf(rs io.ReadSeeker, w io.Writer, image goimage.Image, url strin
 			return err
 		}
 
-		// fmt.Printf("page %d: %.1f x %.1f\n", pNum, w, h)
-
 		err = c.AddPage(page)
 		if err != nil {
 			return err
@@ -165,7 +159,6 @@ func AddImageToPdf(rs io.ReadSeeker, w io.Writer, image goimage.Image, url strin
 
 		// Apply the image to the specified page or all pages if 0.
 		if pNum == pageNum || pageNum == 0 {
-
 			x, y := loc.coords(w, h)
 			// fmt.Printf("*** pagePosition=%d => %.1f, %.1f\n", pagePosition, x, y)
 
@@ -187,7 +180,6 @@ func AddImageToPdf(rs io.ReadSeeker, w io.Writer, image goimage.Image, url strin
 				}
 			}
 
-			// fmt.Printf(" *** SetPos(%.1f, %.1f)\n", x, y)
 			img.SetPos(x, y)
 			err = c.Draw(img)
 			if err != nil {

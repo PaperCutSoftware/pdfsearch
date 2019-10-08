@@ -6,6 +6,7 @@ import (
 	flatbuffers "github.com/google/flatbuffers/go"
 )
 
+// TextLocation is a serializable version of UniPDF's extractor.TextMark.
 type TextLocation struct {
 	_tab flatbuffers.Table
 }

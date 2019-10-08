@@ -134,11 +134,8 @@ func SearchPersistentPdfIndex(persistDir, term string, maxResults int) (PdfMatch
 // numbers and page locations using `blevePdf`.
 func (blevePdf *BlevePdf) SearchBleveIndex(index bleve.Index, term string, maxResults int) (
 	PdfMatchSet, error) {
-
 	p := PdfMatchSet{}
-
 	common.Log.Debug("SearchBleveIndex: term=%q maxResults=%d", term, maxResults)
-
 	if blevePdf.Len() == 0 {
 		common.Log.Info("SearchBleveIndex: Empty positions store %s", blevePdf)
 		return p, nil
@@ -290,11 +287,13 @@ func hitToBleveMatch(hit *search.DocumentMatch) (bleveMatch, error) {
 		}
 		loc := hit.Locations[k]
 		common.Log.Info("%q: %d %v", k, len(loc), frags)
+	outer:
 		for _, v := range loc {
 			for _, l := range v {
-				if start < 0 {
+				if l.Start >= 0 {
 					start = int(l.Start)
 					end = int(l.End)
+					break outer
 				}
 			}
 		}
