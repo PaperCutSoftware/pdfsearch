@@ -157,9 +157,9 @@ func CreatePDFPageProcessorFile(inPath string) (*PDFPageProcessor, error) {
 	return processor, err
 }
 
-// CreatePDFPageProcessorReader creates a  PDFPageProcessor for reading the PDF file referenced by
+// CreatePDFPageProcessorReader creates a PDFPageProcessor for reading the PDF file referenced by
 // `rs`.
-// `inPath` is provided for logging only but it is expected to be the path referenced by `rs`.
+// `inPath` is provided for logging only. It is expected to be the path referenced by `rs`.
 func CreatePDFPageProcessorReader(inPath string, rs io.ReadSeeker) (*PDFPageProcessor, error) {
 	processor := PDFPageProcessor{inPath: inPath}
 	var err error

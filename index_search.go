@@ -303,11 +303,10 @@ func FromBytes(data []byte) (PdfIndex, error) {
 	return from2Bufs(pdfMem, bleveMem)
 }
 
-// to2Bufs serializes `i` to buffers `pdfMem` and `bleveMem`.
-// `pdfMem` contains a serialized SerialPdfIndex.
+// to2Bufs serializes PdfIndex `p` to buffers `pdfMem` and `bleveMem`.
+// `pdfMem` contains a serialized SerialBlevePdf.
 // `bleveMem` contains a serialized bleve.Index.
 func (p PdfIndex) to2Bufs() (pdfMem, bleveMem []byte, err error) {
-
 	hipds, err := p.blevePdf.ToHIPDs()
 	if err != nil {
 		return nil, nil, err
@@ -316,12 +315,12 @@ func (p PdfIndex) to2Bufs() (pdfMem, bleveMem []byte, err error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	spi := serial.SerialPdfIndex{
+	spi := serial.SerialBlevePdf{
 		NumFiles: uint32(p.numFiles),
 		NumPages: uint32(p.numPages),
 		HIPDs:    hipds,
 	}
-	pdfMem = serial.WriteSerialPdfIndex(spi)
+	pdfMem = serial.WriteSerialBlevePdf(spi)
 
 	if len(pdfMem) == 0 || len(bleveMem) == 0 {
 		common.Log.Error("Zero entry: pdfMem=%d bleveMem=%d", len(pdfMem), len(bleveMem))
@@ -336,7 +335,7 @@ func (p PdfIndex) to2Bufs() (pdfMem, bleveMem []byte, err error) {
 }
 
 // from2Bufs extracts a PdfIndex from the bytes in `pdfMem` and `bleveMem`.
-// `pdfMem` contains a serialized SerialPdfIndex.
+// `pdfMem` contains a serialized SerialBlevePdf.
 // `bleveMem` contains a serialized bleve.Index.
 func from2Bufs(pdfMem, bleveMem []byte) (PdfIndex, error) {
 	if err := utils.DecompressInPlace(&pdfMem); err != nil {
@@ -346,7 +345,7 @@ func from2Bufs(pdfMem, bleveMem []byte) (PdfIndex, error) {
 		return PdfIndex{}, err
 	}
 
-	spi, err := serial.ReadSerialPdfIndex(pdfMem)
+	spi, err := serial.ReadSerialBlevePdf(pdfMem)
 	if err != nil {
 		return PdfIndex{}, err
 	}

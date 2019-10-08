@@ -20,15 +20,15 @@ import (
 )
 
 // DocPositions is used to the link per-document data in a bleve index to the PDF file that the
-// per-document data was extracted from.
-// There is one DocPositions per document.
+// data was extracted from.
+// There is one DocPositions per PDF file.
 type DocPositions struct {
-	blevePdf    *BlevePdf                // State of whole store.
-	inPath      string                   // Path of input PDF file.
-	docIdx      uint64                   // Index into blevePdf.fileList.
-	pageDpl     map[uint32]PagePositions // {pageNum: locations of text on page}
-	*docPersist                          // Optional extra fields for in-memory indexes.
-	*docData                             // Optional extra fields for on-disk indexes.
+	blevePdf      *BlevePdf                // State of whole store.
+	inPath        string                   // Path of input PDF file.
+	docIdx        uint64                   // Index into blevePdf.fileList.
+	pagePositions map[uint32]PagePositions // {pageNum: locations of text on page}
+	*docPersist                            // Optional extra fields for in-memory indexes.
+	*docData                               // Optional extra fields for on-disk indexes.
 }
 
 // docPersist tracks the info for indexing a PDF file on disk.
@@ -68,8 +68,8 @@ func (lDoc *DocPositions) Equals(e *DocPositions) bool {
 		common.Log.Error("DocPositions.Equal.pageTexts: %d %d", len(lDoc.pageTexts), len(e.pageTexts))
 		return false
 	}
-	if len(lDoc.pageDpl) != len(e.pageDpl) {
-		common.Log.Error("DocPositions.Equal.pageDpl: %d %d", len(lDoc.pageDpl), len(e.pageDpl))
+	if len(lDoc.pagePositions) != len(e.pagePositions) {
+		common.Log.Error("DocPositions.Equal.pagePositions: %d %d", len(lDoc.pagePositions), len(e.pagePositions))
 		return false
 	}
 	for i, dp := range lDoc.pageNums {
@@ -86,10 +86,10 @@ func (lDoc *DocPositions) Equals(e *DocPositions) bool {
 			return false
 		}
 	}
-	for i, dp := range lDoc.pageDpl {
-		ep, ok := e.pageDpl[i]
+	for i, dp := range lDoc.pagePositions {
+		ep, ok := e.pagePositions[i]
 		if !ok || !dp.Equals(ep) {
-			common.Log.Error("DocPositions.Equal.pageDpl[%d]: %t %d %d", i, ok, dp, ep)
+			common.Log.Error("DocPositions.Equal.pagePositions[%d]: %t %d %d", i, ok, dp, ep)
 			return false
 		}
 	}
@@ -137,7 +137,7 @@ func (lDoc DocPositions) check() {
 	keys := lDoc.pageKeys()
 	for _, pageNum := range keys {
 		if pageNum == 0 {
-			common.Log.Error("lDoc.check.:\n\tlDoc=%#v\n\tpageDpl=%#v", lDoc, lDoc.pageDpl)
+			common.Log.Error("lDoc.check.:\n\tlDoc=%#v\n\tpageDpl=%#v", lDoc, lDoc.pagePositions)
 			common.Log.Error("lDoc.check.: keys=%d %+v", len(keys), keys)
 			panic(errors.New("lDoc.check.: bad pageNum"))
 		}
@@ -222,19 +222,19 @@ func (lDoc *DocPositions) Close() error {
 
 // saveJsonDebug serializes `lDoc` to file `lDoc.pageDplPath` as JSON.
 func (lDoc *DocPositions) saveJsonDebug() error {
-	common.Log.Debug("saveJsonDebug: pageDpl=%d pageDplPath=%q", len(lDoc.pageDpl), lDoc.pageDplPath)
+	common.Log.Debug("saveJsonDebug: pagePositions=%d pageDplPath=%q", len(lDoc.pagePositions), lDoc.pageDplPath)
 	var pageNums []uint32
-	for p := range lDoc.pageDpl {
+	for p := range lDoc.pagePositions {
 		pageNums = append(pageNums, uint32(p))
 	}
 	sort.Slice(pageNums, func(i, j int) bool { return pageNums[i] < pageNums[j] })
 	common.Log.Debug("saveJsonDebug: pageNums=%+v", pageNums)
 	var data []byte
 	for _, pageNum := range pageNums {
-		dpl, ok := lDoc.pageDpl[pageNum]
+		dpl, ok := lDoc.pagePositions[pageNum]
 		if !ok {
-			common.Log.Error("saveJsonDebug: pageNum=%d not in pageDpl", pageNum)
-			return errors.New("pageNum no in pageDpl")
+			common.Log.Error("saveJsonDebug: pageNum=%d not in pagePositions", pageNum)
+			return errors.New("pageNum no in pagePositions")
 		}
 		b, err := json.MarshalIndent(dpl, "", "\t")
 		if err != nil {
@@ -255,7 +255,7 @@ func (lDoc *DocPositions) AddDocPage(pageNum uint32, dpl PagePositions, text str
 	if pageNum == 0 {
 		return 0, errors.New("pageNum=0")
 	}
-	lDoc.pageDpl[pageNum] = dpl
+	lDoc.pagePositions[pageNum] = dpl
 
 	if lDoc.isMem() {
 		lDoc.docData.pageTexts = append(lDoc.docData.pageTexts, text)
@@ -265,9 +265,8 @@ func (lDoc *DocPositions) AddDocPage(pageNum uint32, dpl PagePositions, text str
 	return lDoc.addDocPagePersist(pageNum, dpl, text)
 }
 
-func (lDoc *DocPositions) addDocPagePersist(pageNum uint32, dpl PagePositions,
-	text string) (uint32, error) {
-
+func (lDoc *DocPositions) addDocPagePersist(pageNum uint32, dpl PagePositions, text string) (uint32,
+	error) {
 	b := flatbuffers.NewBuilder(0)
 	buf := serial.MakeDocPageLocations(b, dpl.locations)
 	check := crc32.ChecksumIEEE(buf) // uint32
@@ -315,9 +314,9 @@ func (lDoc *DocPositions) readPersistedPageText(pageIdx uint32) (string, error) 
 	return string(b), nil
 }
 
-// pagePositions returns the PagePositions of the text on the `pageIdx` (0-offset)
-// returned text in document `lDoc`.
-func (lDoc *DocPositions) pagePositions(pageIdx uint32) (uint32, PagePositions, error) {
+// pagePositions returns the page number (1-offset) and PagePositions of the text on the `pageIdx`
+// (0-offset) in `lDoc`.
+func (lDoc *DocPositions) pageNumPositions(pageIdx uint32) (uint32, PagePositions, error) {
 	if lDoc.isMem() {
 		if pageIdx >= uint32(len(lDoc.pageNums)) {
 			return 0, PagePositions{}, fmt.Errorf("bad pageIdx=%d lDoc=%s", pageIdx, lDoc)
@@ -328,14 +327,14 @@ func (lDoc *DocPositions) pagePositions(pageIdx uint32) (uint32, PagePositions, 
 		if pageNum == 0 {
 			return 0, PagePositions{}, fmt.Errorf("No pageNum. lDoc=%s", lDoc)
 		}
-		dpl, ok := lDoc.pageDpl[pageNum]
+		dpl, ok := lDoc.pagePositions[pageNum]
 		if !ok {
 			common.Log.Error("ReadPagePositions: pageIdx=%d pageNum=%d lDoc=%s",
 				pageIdx, pageNum, lDoc)
 			common.Log.Error("ReadPagePositions: pageNums=%d %+v", len(lDoc.pageNums), lDoc.pageNums)
 			keys := lDoc.pageKeys()
-			common.Log.Error("ReadPagePositions: keys=%d %+v", len(lDoc.pageDpl), keys)
-			return 0, PagePositions{}, errors.New("pageNum not in pageDpl")
+			common.Log.Error("ReadPagePositions: keys=%d %+v", len(lDoc.pagePositions), keys)
+			return 0, PagePositions{}, errors.New("pageNum not in pagePositions")
 		}
 		if len(dpl.locations) == 0 {
 			common.Log.Error("ReadPagePositions: pageIdx=%d pageNum=%d lDoc=%s",
@@ -347,10 +346,10 @@ func (lDoc *DocPositions) pagePositions(pageIdx uint32) (uint32, PagePositions, 
 	return lDoc.readPersistedPagePositions(pageIdx)
 }
 
-// pageKeys returns the `lDoc.pageDpl` keys.
+// pageKeys returns the `lDoc.pagePositions` keys.
 func (lDoc *DocPositions) pageKeys() []int {
 	var keys []int
-	for k := range lDoc.pageDpl {
+	for k := range lDoc.pagePositions {
 		keys = append(keys, int(k))
 	}
 	sort.Ints(keys)

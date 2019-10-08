@@ -11,16 +11,18 @@ import (
 	"github.com/unidoc/unipdf/v3/model"
 )
 
-// OffsetBBox describes the location of a text fragment on a PDF page.
-// The text of PDF pages is extracted and sent to bleve for indexing. BBox is used to map
-// the results of bleve searches back to PDF contents.
-// bleve searches returns offsets of the matches on the extracted text.
-// Members need to be public because they are accessedn by serial package.
+// OffsetBBox provides a mapping between the location of a piece of text on a PDF page and the
+// offset of that piece of text in the text extracted from the PDF page.
+// The text extracted from PDF pages is sent to bleve for indexing. BBox() is used to map the
+// results of bleve searches (offsets in the extracted text) back to PDF contents.
+// (Members need to be public because they are accessed by the doclib package.
 type OffsetBBox struct {
 	Offset             uint32  // Offset of the text fragment in extracted page text.
 	Llx, Lly, Urx, Ury float32 // Bounding box of fragment on PDF page.
 }
 
+// BBox returns `t` as a UniDoc rectangle. This is convenient for drawing bounding rectangles around
+// text in a PDF file.
 func (t OffsetBBox) BBox() model.PdfRectangle {
 	return model.PdfRectangle{
 		Llx: float64(t.Llx),

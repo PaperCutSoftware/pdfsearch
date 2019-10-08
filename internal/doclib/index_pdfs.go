@@ -17,6 +17,9 @@ import (
 	"github.com/unidoc/unipdf/v3/common"
 )
 
+// continueOnFailure tells us whether to continue indexing PDF files after errors have occurred.
+const continueOnFailure = true
+
 // IndexPdfFilesUsingReaders creates a bleve+BlevePdf index for `pathList`.
 // If `persistDir` is not empty, the index is written to this directory.
 // If `forceCreate` is true and `persistDir` is not empty, a new directory is always created.
@@ -46,15 +49,21 @@ func IndexPdfFilesUsingReaders(pathList []string, persistDir string, forceCreate
 // If `persist` is false, the index is stored in memory.
 // If `persist` is true, the index is stored on disk in `persistDir`.
 // `report` is a supplied function that is called to report progress.
-// Returns: !@#$
+// Returns: blevePdf, index, numFiles, totalPages, dtPdf, dtBleve, err
+//   blevePdf: mapping of a bleve index to PDF pages and text cooridinates
+//   index: a bleve index
+//   numFiles: number of PDF files succesfully indexed
+//   totalPages: number of PDF pages succesfully indexed
+//   dtPdf: number of seconds spent building blevePdf
+//   dtBleve: number of seconds spent building index
+//   err: error, if one occurred
+//
 // NOTE: If you have access to your PDF files then use `pathList` and set `rsList` to nil as a long
 //     list of file handles may exhaust system resources.
 func IndexPdfFilesOrReaders(pathList []string, rsList []io.ReadSeeker, persistDir string,
 	forceCreate bool, report func(string)) (*BlevePdf, bleve.Index,
 	int, int, time.Duration, time.Duration, error) {
-
 	useReaders := len(rsList) > 0
-
 	common.Log.Info("Indexing %d PDF files. useReaders=%t", len(pathList), useReaders)
 	var dtPdf, dtBleve, dtP, dtB time.Duration
 
@@ -77,7 +86,8 @@ func IndexPdfFilesOrReaders(pathList []string, rsList []io.ReadSeeker, persistDi
 		// Create a new Bleve index.
 		index, err = createBleveDiskIndex(indexPath, forceCreate)
 		if err != nil {
-			return nil, nil, 0, 0, dtPdf, dtBleve, fmt.Errorf("Could not create Bleve index in %q", indexPath)
+			return nil, nil, 0, 0, dtPdf, dtBleve, fmt.Errorf("Could not create Bleve index in %q",
+				indexPath)
 		}
 	}
 
@@ -117,7 +127,9 @@ func IndexPdfFilesOrReaders(pathList []string, rsList []io.ReadSeeker, persistDi
 		dtTotal := time.Since(t00)
 		blevePdf.check()
 		if err != nil {
-			continue
+			if continueOnFailure {
+				continue
+			}
 			return nil, nil, 0, 0, dtPdf, dtBleve, fmt.Errorf("Could not index file %q", inPath)
 		}
 		blevePdf.check()

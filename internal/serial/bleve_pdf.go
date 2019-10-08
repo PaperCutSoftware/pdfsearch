@@ -12,27 +12,29 @@ import (
 	"github.com/unidoc/unipdf/v3/common"
 )
 
+// SerialBlevePdf is for serializing and deserializing doclib.BlevePdf.
+// It corresponds to the following flatbuffers schema.
 // table PdfIndex  {
 // 	num_files:   uint32;
 // 	num_pages:   uint32;
 // 	index :     [byte];
 // 	hipd:       [HashIndexPathDoc];
 // }
-type SerialPdfIndex struct {
+type SerialBlevePdf struct {
 	NumFiles uint32
 	NumPages uint32
 	HIPDs    []HashIndexPathDoc
 }
 
-// WriteSerialPdfIndex converts `spi` into a byte array.
-func WriteSerialPdfIndex(spi SerialPdfIndex) []byte {
+// WriteSerialBlevePdf converts `spi` into a byte array.
+func WriteSerialBlevePdf(spi SerialBlevePdf) []byte {
 	b := flatbuffers.NewBuilder(0)
-	buf := MakeSerialPdfIndex(b, spi)
+	buf := MakeSerialBlevePdf(b, spi)
 	return buf
 }
 
-// MakeDocPositions returns a flatbuffers serialized byte array for `spi`.
-func MakeSerialPdfIndex(b *flatbuffers.Builder, spi SerialPdfIndex) []byte {
+// MakeSerialBlevePdf returns a flatbuffers serialized byte array for `spi`.
+func MakeSerialBlevePdf(b *flatbuffers.Builder, spi SerialBlevePdf) []byte {
 	b.Reset()
 
 	var locOffsets []flatbuffers.UOffsetT
@@ -47,51 +49,51 @@ func MakeSerialPdfIndex(b *flatbuffers.Builder, spi SerialPdfIndex) []byte {
 	}
 	locationsOfs := b.EndVector(len(spi.HIPDs))
 
-	// Write the SerialPdfIndex object.
+	// Write the SerialBlevePdf object.
 	pdf_index.PdfIndexStart(b)
 	pdf_index.PdfIndexAddNumFiles(b, spi.NumFiles)
 	pdf_index.PdfIndexAddNumPages(b, spi.NumPages)
 	pdf_index.PdfIndexAddHipd(b, locationsOfs)
 	dplOfs := pdf_index.PdfIndexEnd(b)
 
-	// Finish the write operations by our SerialPdfIndex the root object.
+	// Finish the write operations by our SerialBlevePdf the root object.
 	b.Finish(dplOfs)
 
 	// return the byte slice containing encoded data:
 	return b.Bytes[b.Head():]
 }
 
-// ReadSerialPdfIndex converts byte array `b` into a SerialPdfIndex.
+// ReadSerialBlevePdf converts byte array `b` into a SerialBlevePdf.
 // Write round trip tests. !@#$
-func ReadSerialPdfIndex(buf []byte) (SerialPdfIndex, error) {
-	// Initialize a SerialPdfIndex reader from `buf`.
+func ReadSerialBlevePdf(buf []byte) (SerialBlevePdf, error) {
+	// Initialize a SerialBlevePdf reader from `buf`.
 	spi := pdf_index.GetRootAsPdfIndex(buf, 0)
 
 	// Vectors, such as `Hipd`, have a method suffixed with 'Length' that can be used
 	// to query the length of the vector. You can index the vector by passing an index value
 	// into the accessor.
 	var hipds []HashIndexPathDoc
-	common.Log.Trace("ReadSerialPdfIndex: spi.HipdLength=%d", spi.HipdLength())
+	common.Log.Trace("ReadSerialBlevePdf: spi.HipdLength=%d", spi.HipdLength())
 	for i := 0; i < spi.HipdLength(); i++ {
 		var loc pdf_index.HashIndexPathDoc
 		ok := spi.Hipd(&loc, i)
 		if !ok {
-			return SerialPdfIndex{}, errors.New("bad HashIndexPathDoc")
+			return SerialBlevePdf{}, errors.New("bad HashIndexPathDoc")
 		}
 		h, err := getHashIndexPathDoc(&loc)
 		if err != nil {
-			return SerialPdfIndex{}, err
+			return SerialBlevePdf{}, err
 		}
 		hipds = append(hipds, h)
 	}
 
-	common.Log.Trace("ReadSerialPdfIndex: NumFiles=%d NumPages=%d HIPDs=%d",
+	common.Log.Trace("ReadSerialBlevePdf: NumFiles=%d NumPages=%d HIPDs=%d",
 		spi.NumFiles(), spi.NumPages(), len(hipds))
 	for i := 0; i < len(hipds) && i < 2; i++ {
-		common.Log.Trace("ReadSerialPdfIndex: hipds[%d]=%v", i, hipds[i])
+		common.Log.Trace("ReadSerialBlevePdf: hipds[%d]=%v", i, hipds[i])
 	}
 
-	return SerialPdfIndex{
+	return SerialBlevePdf{
 		NumFiles: spi.NumFiles(),
 		NumPages: spi.NumPages(),
 		// Index    []byte
@@ -197,7 +199,7 @@ func getHashIndexPathDoc(loc *pdf_index.HashIndexPathDoc) (HashIndexPathDoc, err
 type DocPositions struct {
 	Path      string         // Path of input PDF file.
 	DocIdx    uint64         // Index into blevePdf.fileList.
-	PageDpl   [][]OffsetBBox // PageDpl[i] <=> pageDpl[PageNums[i]]
+	PageDpl   [][]OffsetBBox // PageDpl[i] <=> pagePositions[PageNums[i]]
 	PageNums  []uint32
 	PageTexts []string
 }
@@ -215,7 +217,7 @@ func MakeDocPositions(b *flatbuffers.Builder, doc DocPositions) []byte {
 
 	dplOfs := addDocPositions(b, doc)
 
-	// Finish the write operations by our SerialPdfIndex the root object.
+	// Finish the write operations by our SerialBlevePdf the root object.
 	b.Finish(dplOfs)
 
 	// return the byte slice containing encoded data:
@@ -266,7 +268,7 @@ func addDocPositions(b *flatbuffers.Builder, doc DocPositions) flatbuffers.UOffs
 	}
 	dplOfs := b.EndVector(len(doc.PageDpl))
 
-	// Write the SerialPdfIndex object.
+	// Write the SerialBlevePdf object.
 	pdf_index.DocPositionsStart(b)
 
 	pdf_index.DocPositionsAddPath(b, path)
@@ -278,7 +280,7 @@ func addDocPositions(b *flatbuffers.Builder, doc DocPositions) flatbuffers.UOffs
 }
 
 func ReadDocPositions(buf []byte) (DocPositions, error) {
-	// Initialize a SerialPdfIndex reader from `buf`.
+	// Initialize a SerialBlevePdf reader from `buf`.
 	sdoc := pdf_index.GetRootAsDocPositions(buf, 0)
 	return getDocPositions(sdoc)
 }
@@ -294,7 +296,7 @@ func getDocPositions(sdoc *pdf_index.DocPositions) (DocPositions, error) {
 		pageNums = append(pageNums, pageNum)
 	}
 
-	var pageDpl [][]OffsetBBox
+	var pagePositions [][]OffsetBBox
 	for i := 0; i < sdoc.PageDplLength(); i++ {
 		var sdpl locations.PagePositions
 		if !sdoc.PageDpl(&sdpl, i) {
@@ -305,7 +307,7 @@ func getDocPositions(sdoc *pdf_index.DocPositions) (DocPositions, error) {
 		if err != nil {
 			return DocPositions{}, err
 		}
-		pageDpl = append(pageDpl, dpl)
+		pagePositions = append(pagePositions, dpl)
 	}
 
 	var pageTexts []string
@@ -319,7 +321,7 @@ func getDocPositions(sdoc *pdf_index.DocPositions) (DocPositions, error) {
 		DocIdx:    sdoc.DocIdx(),
 		PageNums:  pageNums,
 		PageTexts: pageTexts,
-		PageDpl:   pageDpl,
+		PageDpl:   pagePositions,
 	}
 
 	return doc, nil

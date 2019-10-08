@@ -5,6 +5,7 @@ package doclib
 import (
 	"bytes"
 	"path/filepath"
+
 	"github.com/blevesearch/bleve"
 	btreap "github.com/blevesearch/bleve/index/store/gtreap"
 	"github.com/papercutsoftware/pdfsearch/internal/utils"
@@ -18,7 +19,6 @@ import (
 // createBleveDiskIndex creates a new persistent bleve index at `indexPath`.
 // If `forceCreate` is true then an existing index will be deleted.
 func createBleveDiskIndex(indexPath string, forceCreate bool) (bleve.Index, error) {
-	// Create a new index.
 	mapping := bleve.NewIndexMapping()
 	index, err := bleve.New(indexPath, mapping)
 	if err == bleve.ErrorIndexPathExists {
@@ -37,7 +37,6 @@ func createBleveDiskIndex(indexPath string, forceCreate bool) (bleve.Index, erro
 
 // createBleveMemIndex creates a new in-memory (unpersisted) bleve index.
 func createBleveMemIndex() (bleve.Index, error) {
-	// Create a new index.
 	mapping := bleve.NewIndexMapping()
 	index, err := bleve.NewMemOnly(mapping)
 	return index, err
@@ -56,7 +55,7 @@ func removeBleveDiskIndex(indexPath string) {
 	}
 }
 
-// ExportBleveMem serializes `index` to a byte slice.
+// ExportBleveMem serializes bleve index `index` to a byte slice.
 func ExportBleveMem(index bleve.Index) ([]byte, error) {
 	var b bytes.Buffer
 	w := &b
@@ -70,7 +69,7 @@ func ExportBleveMem(index bleve.Index) ([]byte, error) {
 	return b.Bytes(), nil
 }
 
-// ImportBleveMem deserializes `data` to a byte bleve.Index.
+// ImportBleveMem deserializes `data` to a bleve.Index.
 func ImportBleveMem(data []byte) (bleve.Index, error) {
 	return bleve.NewUsing(
 		"",

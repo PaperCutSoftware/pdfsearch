@@ -13,11 +13,12 @@ import (
 	"github.com/unidoc/unipdf/v3/model"
 )
 
-// PagePositions is used to the link per-document data in a bleve index to the PDF file that the
-// per-document data was extracted from.
-// There is one PagePositions per page.
+// PagePositions is used to link per-document data in a bleve index to the PDF file the data was
+// extracted from.
+// There is one PagePositions per PDF page.
 // PagePositions stores the locations of text fragments on a page. The search index includes a
 // binary copy of PagePositions, so our goal is to make PagePositions compact.
+// !@#$ Which search index?
 type PagePositions struct {
 	locations []serial.OffsetBBox
 }

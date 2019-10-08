@@ -15,7 +15,6 @@ import (
 	"github.com/papercutsoftware/pdfsearch/examples/cmd_utils"
 )
 
-// TODO: Implement -m indexing. Needs bleve PR.
 const usage = `Usage: go run pdf_search_demo.go [OPTIONS] -f "pcng-manual*.pdf"  PaperCut NG
   Performs a full text search for "PaperCut NG" in PDF files that match "pcng-manual*.pdf".
   There are 3 modes of indexing:
@@ -206,7 +205,6 @@ func showResults(pathList []string, pdfIndex pdfsearch.PdfIndex, results pdfsear
 			fmt.Printf("%4d: %q\n", i, fn)
 		}
 	} else {
-
 		fmt.Println("=================+++=====================")
 		fmt.Printf("%+v\n", results)
 		fmt.Println("=================xxx=====================")

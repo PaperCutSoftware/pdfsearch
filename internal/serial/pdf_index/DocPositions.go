@@ -111,8 +111,8 @@ func DocPositionsAddPath(builder *flatbuffers.Builder, path flatbuffers.UOffsetT
 func DocPositionsAddDocIdx(builder *flatbuffers.Builder, docIdx uint64) {
 	builder.PrependUint64Slot(1, docIdx, 0)
 }
-func DocPositionsAddPageDpl(builder *flatbuffers.Builder, pageDpl flatbuffers.UOffsetT) {
-	builder.PrependUOffsetTSlot(2, flatbuffers.UOffsetT(pageDpl), 0)
+func DocPositionsAddPageDpl(builder *flatbuffers.Builder, pagePositions flatbuffers.UOffsetT) {
+	builder.PrependUOffsetTSlot(2, flatbuffers.UOffsetT(pagePositions), 0)
 }
 func DocPositionsStartPageDplVector(builder *flatbuffers.Builder, numElems int) flatbuffers.UOffsetT {
 	return builder.StartVector(4, numElems, 4)
