@@ -19,5 +19,3 @@ require (
 	github.com/unidoc/unipdf/v3 v3.1.1
 	golang.org/x/net v0.0.0-20190620200207-3b0461eec859 // indirect
 )
-
-replace github.com/unidoc/unipdf/v3 => /Users/peter/go-work/src/github.com/unidoc/unipdf
