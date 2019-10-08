@@ -5,12 +5,14 @@ package doclib
 import (
 	"bytes"
 	"path/filepath"
-
 	"github.com/blevesearch/bleve"
 	btreap "github.com/blevesearch/bleve/index/store/gtreap"
-	"github.com/blevesearch/blevex/preload"
 	"github.com/papercutsoftware/pdfsearch/internal/utils"
 	"github.com/unidoc/unipdf/v3/common"
+
+	// Hack to make blevex work with our serialized in-memory bleve indexes.
+	// TODO: Ask bleve to update "github.com/blevesearch/blevex with our changes
+	"github.com/peterwilliams97/blevex/preload"
 )
 
 // createBleveDiskIndex creates a new persistent bleve index at `indexPath`.
