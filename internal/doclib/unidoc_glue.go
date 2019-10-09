@@ -2,7 +2,6 @@
 
 package doclib
 
-// Based on Unidoc Console Logger.
 import (
 	"errors"
 	"flag"
@@ -17,7 +16,9 @@ import (
 )
 
 var (
+	// Debug can be set true to enable debug level logging.
 	Debug bool
+	// Trace can be set true to enable debug level logging.
 	Trace bool
 	// ExposeErrors can be set to true to not recover from errors in library functions.
 	ExposeErrors bool

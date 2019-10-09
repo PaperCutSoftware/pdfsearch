@@ -194,12 +194,12 @@ func MarkupPdfResults(results PdfMatchSet, outPath string) error {
 	for i, m := range results.Matches {
 		inPath := m.InPath
 		pageNum := m.PageNum
-		dpl := m.PagePositions
-		common.Log.Info("  %d: dpl=%s m=%s", i, dpl, m)
-		if dpl.Empty() {
+		ppos := m.PagePositions
+		common.Log.Info("  %d: ppos=%s m=%s", i, ppos, m)
+		if ppos.Empty() {
 			return errors.New("no Locations")
 		}
-		bbox, ok := dpl.BBox(m.Start, m.End)
+		bbox, ok := ppos.BBox(m.Start, m.End)
 		if !ok {
 			common.Log.Info("No bbox for m=%s", m)
 			continue

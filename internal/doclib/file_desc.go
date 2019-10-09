@@ -45,7 +45,7 @@ func saveFileDescList(jsonPath string, fdList []fileDesc) error {
 type fileDesc struct {
 	InPath string  // Full path to PDF file.
 	Hash   string  // SHA-256 hash of file contents.
-	SizeMB float64 // Size of PDF file on disk.
+	SizeMB float64 // Size of PDF file on disk in megabytes.
 }
 
 // String returns a human readable description of `fd`.

@@ -1,7 +1,7 @@
 // Copyright 2019 PaperCut Software International Pty Ltd. All rights reserved.
 
 /*
- *  This source implements the main function IndexPdfReaders().
+ * This source file implements the main doclib function IndexPdfReaders().
  * IndexPdfFiles() is a convenience function that opens files and calls IndexPdfReaders().
  */
 package doclib
@@ -29,7 +29,6 @@ const continueOnFailure = true
 //      list of opened files as this can exhaust available file handles.
 func IndexPdfFilesUsingReaders(pathList []string, persistDir string, forceCreate bool,
 	report func(string)) (*BlevePdf, bleve.Index, int, int, time.Duration, time.Duration, error) {
-
 	var rsList []io.ReadSeeker
 	for _, inPath := range pathList {
 		rs, err := os.Open(inPath)
@@ -49,8 +48,8 @@ func IndexPdfFilesUsingReaders(pathList []string, persistDir string, forceCreate
 // If `persist` is false, the index is stored in memory.
 // If `persist` is true, the index is stored on disk in `persistDir`.
 // `report` is a supplied function that is called to report progress.
-// Returns: blevePdf, index, numFiles, totalPages, dtPdf, dtBleve, err
-//   blevePdf: mapping of a bleve index to PDF pages and text cooridinates
+// Returns: (blevePdf, index, numFiles, totalPages, dtPdf, dtBleve, err) where
+//   blevePdf: mapping of a bleve index to PDF pages and text coordinates
 //   index: a bleve index
 //   numFiles: number of PDF files succesfully indexed
 //   totalPages: number of PDF pages succesfully indexed
@@ -69,7 +68,8 @@ func IndexPdfFilesOrReaders(pathList []string, rsList []io.ReadSeeker, persistDi
 
 	blevePdf, err := openBlevePdf(persistDir, forceCreate)
 	if err != nil {
-		return nil, nil, 0, 0, dtPdf, dtBleve, fmt.Errorf("Could not create positions store %q. err=%v", persistDir, err)
+		return nil, nil, 0, 0, dtPdf, dtBleve, fmt.Errorf("Could not create positions store %q. "+
+			"err=%v", persistDir, err)
 	}
 	defer blevePdf.flush()
 	defer blevePdf.check()
@@ -78,7 +78,8 @@ func IndexPdfFilesOrReaders(pathList []string, rsList []io.ReadSeeker, persistDi
 	if len(persistDir) == 0 {
 		index, err = createBleveMemIndex()
 		if err != nil {
-			return nil, nil, 0, 0, dtPdf, dtBleve, fmt.Errorf("Could not create Bleve memoryindex. err=%v", err)
+			return nil, nil, 0, 0, dtPdf, dtBleve, fmt.Errorf("Could not create Bleve memoryindex. "+
+				"err=%v", err)
 		}
 	} else {
 		indexPath := filepath.Join(persistDir, "bleve")

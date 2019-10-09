@@ -155,7 +155,7 @@ func getHashIndexPathDoc(loc *pdf_index.HashIndexPathDoc) (HashIndexPathDoc, err
 		pageTexts = append(pageTexts, text)
 	}
 
-	var pageDpls [][]OffsetBBox
+	var pagePositions [][]OffsetBBox
 	for i := 0; i < sdoc.PageDplLength(); i++ {
 		var sdpl locations.PagePositions
 		ok := sdoc.PageDpl(&sdpl, i)
@@ -163,19 +163,19 @@ func getHashIndexPathDoc(loc *pdf_index.HashIndexPathDoc) (HashIndexPathDoc, err
 			common.Log.Error("getHashIndexPathDoc: No PageDpl(%d)", i)
 			return HashIndexPathDoc{}, errors.New("no PageDpl")
 		}
-		dpl, err := getDocPageLocations(&sdpl)
+		ppos, err := getDocPageLocations(&sdpl)
 		if err != nil {
 			return HashIndexPathDoc{}, err
 		}
-		pageDpls = append(pageDpls, dpl)
+		pagePositions = append(pagePositions, ppos)
 	}
 
 	doc := DocPositions{
-		Path:      string(sdoc.Path()),
-		DocIdx:    sdoc.DocIdx(),
-		PageNums:  pageNums,
-		PageTexts: pageTexts,
-		PageDpl:   pageDpls,
+		Path:          string(sdoc.Path()),
+		DocIdx:        sdoc.DocIdx(),
+		PageNums:      pageNums,
+		PageTexts:     pageTexts,
+		PagePositions: pagePositions,
 	}
 
 	hipd := HashIndexPathDoc{
@@ -197,13 +197,14 @@ func getHashIndexPathDoc(loc *pdf_index.HashIndexPathDoc) (HashIndexPathDoc, err
 // 	page_texts: [string];
 // }
 type DocPositions struct {
-	Path      string         // Path of input PDF file.
-	DocIdx    uint64         // Index into blevePdf.fileList.
-	PageDpl   [][]OffsetBBox // PageDpl[i] <=> pagePositions[PageNums[i]]
-	PageNums  []uint32
-	PageTexts []string
+	Path          string         // Path of input PDF file.
+	DocIdx        uint64         // Index into blevePdf.fileList.
+	PagePositions [][]OffsetBBox // PagePositions[i] = doc.pagePositions[doc.pageNums[i]].offsetBBoxes
+	PageNums      []uint32       // 1-offset page numbers of entries.
+	PageTexts     []string       // Extracted page text of entries.
 }
 
+// String returns a text description of `doc`.
 func (doc DocPositions) String() string {
 	return fmt.Sprintf("{DocPositions: DocIdx=%d PageNums=%d PageTexts=%d %q}",
 		doc.DocIdx, len(doc.PageNums), len(doc.PageTexts), doc.Path)
@@ -211,7 +212,6 @@ func (doc DocPositions) String() string {
 
 // MakeDocPositions returns a flatbuffers serialized byte array for `doc`.
 func MakeDocPositions(b *flatbuffers.Builder, doc DocPositions) []byte {
-
 	common.Log.Info("MakeDocPositions: doc=%s", doc)
 	b.Reset()
 
@@ -256,17 +256,17 @@ func addDocPositions(b *flatbuffers.Builder, doc DocPositions) flatbuffers.UOffs
 	textOfs := b.EndVector(len(doc.PageTexts))
 
 	var dplOffsets []flatbuffers.UOffsetT
-	for i, dpl := range doc.PageDpl {
-		common.Log.Trace("addDocPositions: PageDpl[%d]=%d", i, len(dpl))
-		dplOfs := addDocPageLocations(b, dpl)
+	for i, ppos := range doc.PagePositions {
+		common.Log.Trace("addDocPositions: PagePositions[%d]=%d", i, len(ppos))
+		dplOfs := addDocPageLocations(b, ppos)
 		dplOffsets = append(dplOffsets, dplOfs)
 	}
-	pdf_index.DocPositionsStartPageDplVector(b, len(doc.PageDpl))
+	pdf_index.DocPositionsStartPageDplVector(b, len(doc.PagePositions))
 	// Prepend TextLocations in reverse order.
 	for i := len(dplOffsets) - 1; i >= 0; i-- {
 		b.PrependUOffsetT(dplOffsets[i])
 	}
-	dplOfs := b.EndVector(len(doc.PageDpl))
+	dplOfs := b.EndVector(len(doc.PagePositions))
 
 	// Write the SerialBlevePdf object.
 	pdf_index.DocPositionsStart(b)
@@ -286,7 +286,6 @@ func ReadDocPositions(buf []byte) (DocPositions, error) {
 }
 
 func getDocPositions(sdoc *pdf_index.DocPositions) (DocPositions, error) {
-
 	// Vectors, such as `PageNums`, have a method suffixed with 'Length' that can be used
 	// to query the length of the vector. You can index the vector by passing an index value
 	// into the accessor.
@@ -303,11 +302,11 @@ func getDocPositions(sdoc *pdf_index.DocPositions) (DocPositions, error) {
 			common.Log.Error("PageDpl(%d) does not exist", i)
 			return DocPositions{}, errors.New("no PageDpl entry")
 		}
-		dpl, err := getDocPageLocations(&sdpl)
+		ppos, err := getDocPageLocations(&sdpl)
 		if err != nil {
 			return DocPositions{}, err
 		}
-		pagePositions = append(pagePositions, dpl)
+		pagePositions = append(pagePositions, ppos)
 	}
 
 	var pageTexts []string
@@ -317,11 +316,11 @@ func getDocPositions(sdoc *pdf_index.DocPositions) (DocPositions, error) {
 	}
 
 	doc := DocPositions{
-		Path:      string(sdoc.Path()),
-		DocIdx:    sdoc.DocIdx(),
-		PageNums:  pageNums,
-		PageTexts: pageTexts,
-		PageDpl:   pagePositions,
+		Path:          string(sdoc.Path()),
+		DocIdx:        sdoc.DocIdx(),
+		PageNums:      pageNums,
+		PageTexts:     pageTexts,
+		PagePositions: pagePositions,
 	}
 
 	return doc, nil

@@ -45,9 +45,9 @@ type bleveMatch struct {
 	docIdx   uint64  // Document index.
 	pageIdx  uint32  // Page index.
 	Score    float64 // bleve score.
-	Fragment string
-	Start    uint32 // Offset of the start of the bleve match in the page.
-	End      uint32 // Offset of the end of the bleve match in the page.
+	Fragment string  // !@#$ What is this?
+	Start    uint32  // Offset of the start of the bleve match in the page.
+	End      uint32  // Offset of the end of the bleve match in the page.
 }
 
 // ErrNoMatch indicates there was no match for a bleve hit. It is not a real error.
@@ -58,7 +58,6 @@ var ErrNoPositions = errors.New("no match for hit")
 
 // Equals returns true if `p` contains the same results as `q`.
 func (p PdfMatchSet) Equals(q PdfMatchSet) bool {
-
 	if len(p.Matches) != len(q.Matches) {
 		common.Log.Error("PdfMatchSet.Equals.Matches: %d %d", len(p.Matches), len(q.Matches))
 		return false
@@ -241,7 +240,7 @@ func (blevePdf *BlevePdf) hitToPdfMatch(hit *search.DocumentMatch) (PdfMatch, er
 	if err != nil {
 		return PdfMatch{}, err
 	}
-	inPath, pageNum, dpl, err := blevePdf.docPagePositions(m.docIdx, m.pageIdx)
+	inPath, pageNum, ppos, err := blevePdf.docPagePositions(m.docIdx, m.pageIdx)
 	if err != nil {
 		return PdfMatch{}, err
 	}
@@ -259,7 +258,7 @@ func (blevePdf *BlevePdf) hitToPdfMatch(hit *search.DocumentMatch) (PdfMatch, er
 		PageNum:       pageNum,
 		LineNum:       lineNum,
 		Line:          line,
-		PagePositions: dpl,
+		PagePositions: ppos,
 		bleveMatch:    m,
 	}, nil
 }

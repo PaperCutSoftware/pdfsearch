@@ -52,11 +52,11 @@ func (t OffsetBBox) Equals(u OffsetBBox) bool {
 	return true
 }
 
-// MakeDocPageLocations returns a flatbuffers serialized byte array for `dpl`.
-func MakeDocPageLocations(b *flatbuffers.Builder, dpl []OffsetBBox) []byte {
+// MakeDocPageLocations returns a flatbuffers serialized byte array for `ppos`.
+func MakeDocPageLocations(b *flatbuffers.Builder, ppos []OffsetBBox) []byte {
 	b.Reset()
 
-	dplOfs := addDocPageLocations(b, dpl)
+	dplOfs := addDocPageLocations(b, ppos)
 
 	// Finish the write operations by our PagePositions the root object.
 	b.Finish(dplOfs)
@@ -65,19 +65,19 @@ func MakeDocPageLocations(b *flatbuffers.Builder, dpl []OffsetBBox) []byte {
 	return b.Bytes[b.Head():]
 }
 
-// addDocPageLocations writes `dpl` to builder `b` and returns the root-table offset.
-func addDocPageLocations(b *flatbuffers.Builder, dpl []OffsetBBox) flatbuffers.UOffsetT {
+// addDocPageLocations writes `ppos` to builder `b` and returns the root-table offset.
+func addDocPageLocations(b *flatbuffers.Builder, ppos []OffsetBBox) flatbuffers.UOffsetT {
 	var locOffsets []flatbuffers.UOffsetT
-	for _, loc := range dpl {
+	for _, loc := range ppos {
 		locOfs := addTextLocation(b, loc)
 		locOffsets = append(locOffsets, locOfs)
 	}
-	locations.DocPageLocationsStartLocationsVector(b, len(dpl))
+	locations.DocPageLocationsStartLocationsVector(b, len(ppos))
 	// Prepend TextLocations in reverse order.
 	for i := len(locOffsets) - 1; i >= 0; i-- {
 		b.PrependUOffsetT(locOffsets[i])
 	}
-	locationsOfs := b.EndVector(len(dpl))
+	locationsOfs := b.EndVector(len(ppos))
 
 	// Write the PagePositions object.
 	locations.DocPageLocationsStart(b)
@@ -89,8 +89,8 @@ func addDocPageLocations(b *flatbuffers.Builder, dpl []OffsetBBox) flatbuffers.U
 
 func ReadDocPageLocations(buf []byte) ([]OffsetBBox, error) {
 	// Initialize a PagePositions reader from `buf`.
-	dpl := locations.GetRootAsDocPageLocations(buf, 0)
-	return getDocPageLocations(dpl)
+	ppos := locations.GetRootAsDocPageLocations(buf, 0)
+	return getDocPageLocations(ppos)
 }
 
 func getDocPageLocations(sdpl *locations.PagePositions) ([]OffsetBBox, error) {
@@ -98,17 +98,17 @@ func getDocPageLocations(sdpl *locations.PagePositions) ([]OffsetBBox, error) {
 	// Vectors, such as `Locations`, have a method suffixed with 'Length' that can be used
 	// to query the length of the vector. You can index the vector by passing an index value
 	// into the accessor.
-	var dpl []OffsetBBox
+	var ppos []OffsetBBox
 	for i := 0; i < sdpl.LocationsLength(); i++ {
 		var sloc locations.TextLocation
 		ok := sdpl.Locations(&sloc, i)
 		if !ok {
 			return []OffsetBBox{}, errors.New("bad TextLocation")
 		}
-		dpl = append(dpl, getTextLocation(&sloc))
+		ppos = append(ppos, getTextLocation(&sloc))
 	}
-	common.Log.Debug("ReadDocPageLocations: dpl=%d", len(dpl))
-	return dpl, nil
+	common.Log.Debug("ReadDocPageLocations: ppos=%d", len(ppos))
+	return ppos, nil
 }
 
 // MakeTextLocation returns a flatbuffers serialized byte array for `loc`.
