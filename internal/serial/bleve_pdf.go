@@ -17,7 +17,6 @@ import (
 // table PdfIndex  {
 // 	num_files:   uint32;
 // 	num_pages:   uint32;
-// 	index :     [byte];
 // 	hipd:       [HashIndexPathDoc];
 // }
 type SerialBlevePdf struct {
@@ -96,8 +95,7 @@ func ReadSerialBlevePdf(buf []byte) (SerialBlevePdf, error) {
 	return SerialBlevePdf{
 		NumFiles: spi.NumFiles(),
 		NumPages: spi.NumPages(),
-		// Index    []byte
-		HIPDs: hipds,
+		HIPDs:    hipds,
 	}, nil
 }
 
@@ -279,11 +277,12 @@ func addDocPositions(b *flatbuffers.Builder, doc DocPositions) flatbuffers.UOffs
 	return pdf_index.DocPositionsEnd(b)
 }
 
-func ReadDocPositions(buf []byte) (DocPositions, error) {
-	// Initialize a SerialBlevePdf reader from `buf`.
-	sdoc := pdf_index.GetRootAsDocPositions(buf, 0)
-	return getDocPositions(sdoc)
-}
+// ReadDocPositions is not used !@#$
+// func ReadDocPositions(buf []byte) (DocPositions, error) {
+// 	// Initialize a SerialBlevePdf reader from `buf`.
+// 	sdoc := pdf_index.GetRootAsDocPositions(buf, 0)
+// 	return getDocPositions(sdoc)
+// }
 
 func getDocPositions(sdoc *pdf_index.DocPositions) (DocPositions, error) {
 	// Vectors, such as `PageNums`, have a method suffixed with 'Length' that can be used
@@ -326,6 +325,7 @@ func getDocPositions(sdoc *pdf_index.DocPositions) (DocPositions, error) {
 	return doc, nil
 }
 
+// truncate truncates `text` to its first `n` characters.
 func truncate(text string, n int) string {
 	if len(text) <= n {
 		return text

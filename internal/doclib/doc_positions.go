@@ -137,7 +137,8 @@ func (docPos DocPositions) check() {
 	keys := docPos.pageKeys()
 	for _, pageNum := range keys {
 		if pageNum == 0 {
-			common.Log.Error("docPos.check.:\n\tlDoc=%#v\n\tpageDpl=%#v", docPos, docPos.pagePositions)
+			common.Log.Error("docPos.check.:\n\tlDoc=%#v\n\tpagePositions=%#v", docPos,
+				docPos.pagePositions)
 			common.Log.Error("docPos.check.: keys=%d %+v", len(keys), keys)
 			panic(errors.New("docPos.check.: bad pageNum"))
 		}

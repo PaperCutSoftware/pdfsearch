@@ -6,11 +6,15 @@ namespace pdf_index;
 table DocPositions {
 	path:  string;                          // Path of input PDF file.
 	doc_idx:  uint64;                       // Index into blevePdf.fileList.
-	page_dpl: [locations.PagePositions]; // page_dpl[i] is PagePositions for page_nums[i].
+	page_dpl: [locations.PagePositions];    // page_dpl[i] is PagePositions for page_nums[i].
 	page_nums:  [uint32];                   // page_nums[i] is the page number of the ith page.
 	page_texts: [string];                   // page_dpl[i] is the extracted tex for page_nums[i].
 }
 
+//	hashIndex  map[string]uint64        // {file hash: index into fileList}
+//	indexHash  map[uint64]string        // {index into fileList: file hash}
+//	hashPath   map[string]string        // {file hash: file path}
+//	hashDoc    map[string]*DocPositions // {file hash: DocPositions}
 table HashIndexPathDoc {
 	hash: string;
 	index: uint64;
@@ -18,15 +22,9 @@ table HashIndexPathDoc {
 	doc: DocPositions;
 }
 
-//	hashIndex  map[string]uint64        // {file hash: index into fileList}
-//	indexHash  map[uint64]string        // {index into fileList: file hash}
-//	hashPath   map[string]string        // {file hash: file path}
-//	hashDoc    map[string]*DocPositions // {file hash: DocPositions}
-
 table PdfIndex  {
 	num_files:   uint32;
 	num_pages:   uint32;
-	index :     [byte];
 	hipd:       [HashIndexPathDoc];
 }
 
