@@ -1,5 +1,85 @@
-[GopherCon-AU-2019](https://www.papercall.io/gophercon-au-2019) Talk Proposal
-=============================================================================
+PDF Full Text Search in Pure Go. Why and How I Wrote it.
+========================================================
+Is Go a great language?
+
+I don't know and don't care. It works for me.
+
+Go is well suited to the work I do at PaperCut.
+
+* Printer monitoring software
+* Tightly coupled to OS
+* Run on Windows, Mac OS and many Linux distros.
+* Complex
+* Soft real time
+
+Go allows me to
+
+* Develop complex software
+* Build small executables
+
+Go design choices are suitable for my work
+
+* Simplicity
+* Garbage collection
+* Compiled
+* Strongly typed (apart from runtime ...)
+* Low ceremony
+* Libraries for most things I need
+  - Networking
+  - Crypto
+* Libraries are understandable so I can build executables that are unlikely to surprise PaperCut's
+customers.
+
+My current PaperCut projects are [PaperCut Mobility](https://www.papercut.com/tour/mobility-print/) and
+[Pocket](https://www.papercut.com/products/papercut-pocket/). These are
+[IPP](https://en.wikipedia.org/wiki/Internet_Printing_Protocol) based print servers.
+
+* IPP is an HTTP(S) printing protocol
+* PaperCut's IPP is written in pure Go on top of the Go [HTTP](https://golang.org/pkg/net/http/)
+server code.
+* Works on Windows, Mac and Linux.
+* Therefore can be installed on local servers, edge nodes and in cloud.
+* Convenient binary. No JVM required.
+* Works well in practice. Millions? of installations.
+
+How Do we Add Value to our IPP Server?
+
+The IPP protocol has a _print in black and white_ setting that for technical reasons is hard to
+implement on some operating systems.
+
+* I needed to implemement PDF color to grayscale conversions.
+
+PDF color to grayscale conversion is not in any standard library I know in any language.
+There are PDF libraries for some languages. xpdf for C++, PdfBox for Java.
+I couldn't find any native Go PDF library as mature as xpdf or PdfBox.
+But it would not have helped if I could. xpdf and PdfBox do a lot of useful things but PDF modification
+is not one of them.
+I found UniPdf which is a small library that was open to new features. They were about to do PDF
+conversions and they helped me add PDF grayscale conversion to their library.
+
+This is what I need from open source libraries for the kind of work I do.
+
+Non-mainstream. I need libraries that are under active development and will take major contributions
+The alternative would be to do all the work myself. This would be costly to me in the long term
+because I would have to maintain a
+perpetual branch of the library and keep merging new features back to my branch.
+
+There is good eco-system of such libraries in Go.
+
+* Solving a wide range of problems.
+* Code is simple and understandable.
+* Libraries have shallow dependencies
+
+That's the world I live in when I program.
+
+A Harder Problem
+----------------
+PaperCut needs full text search over
+
+
+
+
+
 
 ELEVATOR PITCH (<= 300 characters)
 --------------
@@ -22,8 +102,8 @@ could take a long time to write and is not necessarily the kind of project that 
 expect a small Australian software product company to undertake.
 
 Modern software product companies often solve customer problems using a powerful open source
-software stack, such as the Go ecosystem. It takes extra work to create
-libraries further down the software stack, but there is extra value in doing so: if a necessary
+software stack, such as the Go ecosystem. It takes extra work to create libraries further down the
+software stack, but there is extra value in doing so: if a necessary
 library doesn’t exist then you can build it yourself. This is critical for companies who survive on
 the technical depth of their software.
 

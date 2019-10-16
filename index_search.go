@@ -105,7 +105,6 @@ func IndexPdfMem(pathList []string, rsList []io.ReadSeeker, report func(string))
 // `report` is a supplied function that is called to report progress.
 func IndexPdfReaders(pathList []string, rsList []io.ReadSeeker, persist bool, persistDir string,
 	report func(string)) (PdfIndex, error) {
-
 	if !persist {
 		blevePdf, bleveIdx, numFiles, numPages, dtPdf, dtBleve, err := doclib.IndexPdfFilesOrReaders(
 			pathList, rsList, "", true, report)
@@ -173,6 +172,7 @@ func (p PdfIndex) Search(term string, maxResults int) (PdfMatchSet, error) {
 	if maxResults < 0 {
 		maxResults = DefaultMaxResults
 	}
+	common.Log.Info("maxResults=%d DefaultMaxResults=%d", maxResults, DefaultMaxResults)
 	if !p.persist {
 		s, err := p.blevePdf.SearchBleveIndex(p.bleveIdx, term, maxResults)
 		return PdfMatchSet(s), err

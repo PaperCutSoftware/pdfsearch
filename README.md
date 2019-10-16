@@ -68,7 +68,7 @@ TIMINGS
 
 
 TODO
-====
+----
 Cleanup validate() Check()
 Simple command line program
 Remove panic()'s
@@ -76,3 +76,9 @@ Remove !@#$'s
 Remove uint32 etc
 Remove abstraction layers, especially unidoc_glue.go
 Get free text search working
+
+References
+----------
+[Full-Text Search Tips & Tricks (Denis Rosa)](https://www.youtube.com/watch?v=B9qRJhA1ONs)
+https://blevesearch.com/docs/Query-String-Query/
+https://twitter.com/hashtag/fulltextsearch

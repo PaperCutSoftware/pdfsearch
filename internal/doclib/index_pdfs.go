@@ -63,7 +63,8 @@ func IndexPdfFilesOrReaders(pathList []string, rsList []io.ReadSeeker, persistDi
 	forceCreate bool, report func(string)) (*BlevePdf, bleve.Index,
 	int, int, time.Duration, time.Duration, error) {
 	useReaders := len(rsList) > 0
-	common.Log.Info("Indexing %d PDF files. useReaders=%t", len(pathList), useReaders)
+	common.Log.Info("Indexing %d PDF files. useReaders=%t forceCreate=%t",
+		len(pathList), useReaders, forceCreate)
 	var dtPdf, dtBleve, dtP, dtB time.Duration
 
 	blevePdf, err := openBlevePdf(persistDir, forceCreate)
