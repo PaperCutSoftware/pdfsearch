@@ -199,12 +199,14 @@ func MarkupPdfResults(results PdfMatchSet, outPath string) error {
 		if ppos.Empty() {
 			return errors.New("no Locations")
 		}
-		bbox, ok := ppos.BBox(m.Start, m.End)
-		if !ok {
-			common.Log.Info("No bbox for m=%s", m)
-			continue
+		for _, span := range m.Spans {
+			bbox, ok := ppos.BBox(span.Start, span.End)
+			if !ok {
+				common.Log.Info("No bbox for m=%s span=%v", m, span)
+				continue
+			}
+			extractList.AddRect(inPath, pageNum, bbox)
 		}
-		extractList.AddRect(inPath, pageNum, bbox)
 	}
 	return extractList.SaveOutputPdf(outPath)
 }
