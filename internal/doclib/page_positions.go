@@ -84,7 +84,20 @@ func (ppos PagePositions) BBox(start, end uint32) (model.PdfRectangle, bool) {
 	}
 	bbox := ppos.offsetBBoxes[i0].BBox()
 	for i := i0 + 1; i < i1; i++ {
-		bbox = rectUnion(bbox, ppos.offsetBBoxes[i].BBox())
+		b := ppos.offsetBBoxes[i].BBox()
+		// Ignore the filler entries. These are spaces etc.
+		if b.Urx == 0 && b.Ury == 0 {
+			continue
+		}
+		bbox = rectUnion(bbox, b)
+	}
+	if bbox.Height() > 200 || bbox.Width() > 200 {
+		for i := i0 + 1; i < i1; i++ {
+			common.Log.Error("i=%d bbox=%v", i, ppos.offsetBBoxes[i].BBox())
+		}
+		if bbox.Height() > 200 {
+			panic(fmt.Errorf("bbox=%+v start=%d end=%d", bbox, start, end))
+		}
 	}
 	return bbox, true
 }

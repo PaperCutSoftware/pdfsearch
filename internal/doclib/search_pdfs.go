@@ -50,10 +50,11 @@ type bleveMatch struct {
 	Spans    []Span
 }
 
+// Span gives the offsets in extracted text that span a phrase.
 type Span struct {
-	Start uint32 // Offset of the start of the bleve match in the page.
-	End   uint32 // Offset of the end of the bleve match in the page.
-	Score float64
+	Start uint32  // Offset of the start of the bleve match in the page.
+	End   uint32  // Offset of the end of the bleve match in the page.
+	Score float64 // Score for this match
 }
 
 // Best return a copy of `p` trimmed to the results with the highest score.
@@ -335,6 +336,8 @@ func (blevePdf *BlevePdf) hitToPdfMatch(fullTerm string, hit *search.DocumentMat
 		}
 		lineNums = append(lineNums, lineNum)
 		lines = append(lines, line)
+		// !@#$ Check for bad BBoxes
+		ppos.BBox(span.Start, span.End)
 	}
 
 	return PdfMatch{
@@ -482,9 +485,9 @@ func hitToBleveMatch(fullTerm string, hit *search.DocumentMatch) (bleveMatch, er
 		for _, fragment := range fragments {
 			frags.WriteString(fragment)
 		}
-		loc := hit.Locations[k]
-		common.Log.Info("%q: %d %q", k, len(loc), frags.String())
-		phrases = bestPhrases(fullTerm, hit.Locations[k])
+		termLocMap := hit.Locations[k]
+		common.Log.Info("%q: %d %q", k, len(termLocMap), frags.String())
+		phrases = bestPhrases(fullTerm, termLocMap)
 	}
 
 	var spans []Span
@@ -519,8 +522,8 @@ func decodeID(id string) (uint64, uint32, error) {
 	return uint64(docIdx), uint32(pageIdx), nil
 }
 
-// lineNumber returns the 1-offset line number and the text of the line of the contains
-// the 0-offset `offset` in `text`.
+// lineNumber returns the 1-offset line number and the text of the line of the contains the 0-offset
+//  `offset` in `text`.
 func lineNumber(text string, offset uint32) (int, string, bool) {
 	endings := lineEndings(text)
 	n := len(endings)
