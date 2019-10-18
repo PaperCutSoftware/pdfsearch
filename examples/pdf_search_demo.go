@@ -110,7 +110,6 @@ func main() {
 //  `maxResults`: Max number of search results to return.
 func runIndexSearchShow(pathList []string, term, persistDir string, serialize, persist, reuse,
 	nameOnly bool, maxResults int, outPath string) error {
-
 	pdfIndex, results, dt, dtIndex, err := runIndexSearch(pathList, term, persistDir, serialize,
 		persist, reuse, maxResults)
 	if err != nil {
@@ -131,7 +130,6 @@ func runIndexSearchShow(pathList []string, term, persistDir string, serialize, p
 //  `maxResults`: Max number of search results to return.
 func runIndexSearch(pathList []string, term, persistDir string, serialize, persist, reuse bool, maxResults int) (
 	pdfIndex pdfsearch.PdfIndex, results pdfsearch.PdfMatchSet, dt, dtIndex time.Duration, err error) {
-
 	fmt.Fprintf(os.Stderr, "@@@@ %t %t %d files\n", serialize, persist, len(pathList))
 
 	t0 := time.Now()
@@ -195,7 +193,6 @@ func runIndexSearch(pathList []string, term, persistDir string, serialize, persi
 //  `maxResults`: Max number of search results to return.
 func showResults(pathList []string, pdfIndex pdfsearch.PdfIndex, results pdfsearch.PdfMatchSet,
 	dt, dtIndex time.Duration, serialize, nameOnly bool, maxResults int, outPath string) error {
-
 	if nameOnly {
 		files := results.Files()
 		if len(files) > maxResults {

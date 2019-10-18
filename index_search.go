@@ -53,6 +53,11 @@ import (
 // PdfMatchSet makes doclib.PdfMatchSet public.
 type PdfMatchSet doclib.PdfMatchSet
 
+// String()  makes doclib.PdfMatchSet.String public.
+func (s PdfMatchSet) String() string {
+	return doclib.PdfMatchSet(s).String()
+}
+
 // Files  makes doclib.PdfMatchSet.Files public.
 func (s PdfMatchSet) Files() []string {
 	return doclib.PdfMatchSet(s).Files()
@@ -61,6 +66,11 @@ func (s PdfMatchSet) Files() []string {
 // Equals makes doclib.PdfMatchSet.Equals public.
 func (s PdfMatchSet) Equals(t PdfMatchSet) bool {
 	return doclib.PdfMatchSet(s).Equals(doclib.PdfMatchSet(t))
+}
+
+// Equals makes doclib.PdfMatchSet.Equals public.
+func (s PdfMatchSet) Best() PdfMatchSet {
+	return PdfMatchSet(doclib.PdfMatchSet(s).Best())
 }
 
 const (
@@ -76,7 +86,6 @@ const (
 // `report` is a supplied function that is called to report progress.
 func IndexPdfFiles(pathList []string, persist bool, persistDir string, report func(string)) (
 	PdfIndex, error) {
-
 	// A nil rsList makes IndexPdfFilesOrReaders uses paths.
 	var rsList []io.ReadSeeker
 	return IndexPdfReaders(pathList, rsList, persist, persistDir, report)
@@ -173,12 +182,29 @@ func (p PdfIndex) Search(term string, maxResults int) (PdfMatchSet, error) {
 		maxResults = DefaultMaxResults
 	}
 	common.Log.Info("maxResults=%d DefaultMaxResults=%d", maxResults, DefaultMaxResults)
+
+	var s doclib.PdfMatchSet
+	var err error
 	if !p.persist {
-		s, err := p.blevePdf.SearchBleveIndex(p.bleveIdx, term, maxResults)
-		return PdfMatchSet(s), err
+		s, err = p.blevePdf.SearchBleveIndex(p.bleveIdx, term, maxResults)
+		if err != nil {
+			return PdfMatchSet{}, err
+		}
+	} else {
+		s, err = doclib.SearchPersistentPdfIndex(p.persistDir, term, maxResults)
+		if err != nil {
+			return PdfMatchSet{}, err
+		}
 	}
-	s, err := doclib.SearchPersistentPdfIndex(p.persistDir, term, maxResults)
-	return PdfMatchSet(s), err
+
+	results := PdfMatchSet(s)
+	common.Log.Info("PdfIndex.Search: results (before)================|||================")
+	common.Log.Info("%s", results.String())
+	// This is where were we select the best results to show
+	results = results.Best()
+	common.Log.Info("PdfIndex.Search: results (after )================---================")
+	common.Log.Info("%s", results.String())
+	return results, err
 }
 
 // MarkupPdfResults adds rectangles to the text positions of all matches on their PDF pages,

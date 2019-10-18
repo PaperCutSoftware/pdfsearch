@@ -46,15 +46,56 @@ type bleveMatch struct {
 	docIdx   uint64  // Document index.
 	pageIdx  uint32  // Page index.
 	Score    float64 // bleve score.
-	Fragment string  // bleve's marked up string
-	// Start    uint32  // Offset of the start of the bleve match in the page.
-	// End      uint32  // Offset of the end of the bleve match in the page.
-	Spans []Span
+	Fragment string  // bleve's marked up string Needed? !@#$
+	Spans    []Span
 }
 
 type Span struct {
 	Start uint32 // Offset of the start of the bleve match in the page.
 	End   uint32 // Offset of the end of the bleve match in the page.
+	Score float64
+}
+
+// Best return a copy of `p` trimmed to the results with the highest score.
+func (p PdfMatchSet) Best() PdfMatchSet {
+	best := PdfMatchSet{
+		SearchDuration: p.SearchDuration,
+	}
+	bestScore := 0.0
+	for _, m := range p.Matches {
+		for _, s := range m.Spans {
+			if s.Score >= bestScore {
+				bestScore = s.Score
+			}
+		}
+	}
+	numMatches := 0
+	numBest := 0
+	for _, m := range p.Matches {
+		var lineNums []int
+		var lines []string
+		var spans []Span
+		for i, s := range m.Spans {
+			numMatches++
+			if s.Score >= bestScore {
+				lineNums = append(lineNums, m.LineNums[i])
+				lines = append(lines, m.Lines[i])
+				spans = append(spans, s)
+			}
+		}
+		if len(spans) > 0 {
+			o := m
+			o.LineNums = lineNums
+			o.Lines = lines
+			o.Spans = spans
+			best.Matches = append(best.Matches, o)
+			best.TotalMatches += len(spans)
+			numBest++
+		}
+	}
+	common.Log.Info("PdfMatchSet.Best: bestScore=%g numMatches=%d numBest=%d",
+		bestScore, numMatches, numBest)
+	return best
 }
 
 // ErrNoMatch indicates there was no match for a bleve hit. It is not a real error.
@@ -223,6 +264,19 @@ func (blevePdf *BlevePdf) srToMatchSet(fullTerm string, sr *bleve.SearchResult) 
 	return results, nil
 }
 
+const showlen = 5
+
+func (p PdfMatch) String() string {
+	spans := p.Spans
+	if len(spans) > showlen {
+		spans = spans[:showlen]
+	}
+	return fmt.Sprintf("PDFMATCH{%q:%d Spans=%d%v Positions=%d}",
+		p.InPath, p.PageNum,
+		len(p.Spans), spans,
+		len(p.PagePositions.offsetBBoxes))
+}
+
 // String returns a human readable description of `s`.
 func (s PdfMatchSet) String() string {
 	if s.TotalMatches <= 0 {
@@ -235,8 +289,7 @@ func (s PdfMatchSet) String() string {
 	fmt.Fprintf(&sb, "%d matches, showing %d, SearchDuration %s\n",
 		s.TotalMatches, len(s.Matches), s.SearchDuration)
 	for i, m := range s.Matches {
-		fmt.Fprintln(&sb, "--------------------------------------------------")
-		fmt.Fprintf(&sb, "%d: %s\n", i+1, m)
+		fmt.Fprintf(&sb, "%4d: %s\n", i+1, m)
 	}
 	return sb.String()
 }
@@ -254,14 +307,6 @@ func (s PdfMatchSet) Files() []string {
 		fileSet[m.InPath] = struct{}{}
 	}
 	return files
-}
-
-// String returns a human readable description of PdfMatch `p`.
-func (p PdfMatch) String() string {
-	return fmt.Sprintf("{PdfMatch: path=%q pageNum=%d lines=%v (score=%.3f)\nmatch=%q\n"+
-		"^^^^^^^^ Marked up Text ^^^^^^^^\n"+
-		"%s\n}",
-		p.InPath, p.PageNum, p.LineNums, p.Score, p.Lines, p.Fragment)
 }
 
 // hitToPdfMatch returns the PdfMatch corresponding the bleve DocumentMatch `hit`.
@@ -321,6 +366,7 @@ func bestPhrases(fullTerm string, termLocMap search.TermLocationMap) []Phrase {
 	for term := range termLocMap {
 		terms = append(terms, term)
 	}
+	common.Log.Info("bestPhrases: [before] terms=%d %q fullTerm=%q", len(terms), terms, fullTerm)
 	sort.Slice(terms, func(i, j int) bool {
 		ti, tj := terms[i], terms[j]
 		pi := strings.Index(fullTerm, ti)
@@ -331,12 +377,10 @@ func bestPhrases(fullTerm string, termLocMap search.TermLocationMap) []Phrase {
 		if pj < 0 {
 			panic(tj)
 		}
-		smaller := ti > tj
-		common.Log.Info("i=%d ti=%q pi=%d -- j=%d tj=%q pj=%d -- %t",
-			i, ti, pi, j, tj, pj, smaller)
-		return smaller
+		return pi < pj
 	})
-	common.Log.Info("bestPhrases: terms=%d %q", len(terms), terms)
+	common.Log.Info("bestPhrases: [after ] terms=%d %q", len(terms), terms)
+
 	termPositions := map[string]map[int]struct{}{}
 	startMap := map[int]struct{}{}
 	posLoc := map[int]search.Location{}
@@ -427,7 +471,6 @@ func hitToBleveMatch(fullTerm string, hit *search.DocumentMatch) (bleveMatch, er
 		return bleveMatch{}, err
 	}
 
-	// start, end := -1, -1
 	var frags strings.Builder
 	var phrases []Phrase
 	common.Log.Info("----------xxx------------ %d Fragments", len(hit.Fragments))
@@ -441,41 +484,12 @@ func hitToBleveMatch(fullTerm string, hit *search.DocumentMatch) (bleveMatch, er
 		}
 		loc := hit.Locations[k]
 		common.Log.Info("%q: %d %q", k, len(loc), frags.String())
-		// outer:
-		// for i, v := range loc {
-		// 	common.Log.Info("%q: v=%T=%+v", i, v, v)
-		// 	for j, l := range v {
-		// 		common.Log.Info("%8d: l=%+v", j, l)
-		// 		if l.Start >= 0 {
-		// 			start = int(l.Start)
-		// 			end = int(l.End)
-		// 			// break outer
-		// 		}
-		// 	}
-		// }
 		phrases = bestPhrases(fullTerm, hit.Locations[k])
-		// panic("done")
 	}
-	// if start < 0 {
-	// 	// !@#$ Do we need to return an error?
-	// 	common.Log.Error("Fragments=%d", len(hit.Fragments))
-	// 	for k := range hit.Fragments {
-	// 		loc := hit.Locations[k]
-	// 		common.Log.Error("%q: %v", k, frags)
-	// 		for kk, v := range loc {
-	// 			for i, l := range v {
-	// 				common.Log.Error("\t%q: %d: %#v", kk, i, l)
-	// 			}
-	// 		}
-	// 	}
-	// 	err := ErrNoMatch
-	// 	common.Log.Error("hit=%s err=%v", hit, err)
-	// 	return bleveMatch{}, err
-	// }
 
 	var spans []Span
 	for _, p := range phrases {
-		spn := Span{Start: uint32(p.start), End: uint32(p.end)}
+		spn := Span{Start: uint32(p.start), End: uint32(p.end), Score: float64(p.score)}
 		spans = append(spans, spn)
 	}
 	return bleveMatch{
