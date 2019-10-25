@@ -1,5 +1,53 @@
 PDF Full Text Search in Pure Go. Why and How I Wrote it.
 ========================================================
+
+3 parts
+1) Background         10 minutes
+2) The code           15 minutes
+3) Summary / questions 5 minutes
+30 minutes
+https://qrdoc.io/#/
+
+1) Many PDF features
+2) a) Needed full text search for alerts, archive search
+   b) Need to run on edge nodes and in the cloud
+   PaperCut uses Go for edge nodes and cloud so it is convenient for product developers to get
+   functionality as pure Go library
+   Could give them binaries which they could launch per-job from their server code. PaperCut
+   servers tend not to average more than a job every few seconds so process launching overheads are
+   acceptable.
+   However building C++ libraries on all platforms is inconvenient
+   Pure Go is easy for development
+
+   UniPdf was suited to PaperCut
+   We needed to do non-mainstream things
+
+What PaperCut Does
+Why PaperCut Uses Go
+Most of what PaperCut needs is in standard library
+Need a PDF library that can be modified
+Need PDF full text search
+    PaperCut is a print server
+    But also provides digital access to documents that are printed
+        Print alerts
+        Archive search
+    PaperCut client apps need to show digital pages so the users can see which paper page a digital
+    page corresponds to. Page numbers are not reliable and paper page numbering is not the same as
+    the order of a page in a book due to preface, title page etc. Printed slides may not have numbers
+    Therefore we need to show pictures of the pages which will look like the printed pages.
+    Elastisearch is too big and complicated
+    Dive into code
+
+    Problem
+    1) Extract text and positions from PDF
+    2) Do full text search on the extracted text
+    3) Find position of search matches in PDF
+    4) Mark up PDF
+    5) Ship pages to client e.g. Mobile print release screen
+
+
+
+
 Is Go a great language?
 
 I don't know and don't care. It works for me.
