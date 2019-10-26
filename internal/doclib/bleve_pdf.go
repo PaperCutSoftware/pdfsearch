@@ -414,7 +414,6 @@ func (blevePdf *BlevePdf) extractDocPagePositionsReader(inPath string, rs io.Rea
 // document this !@#$
 func (blevePdf *BlevePdf) doExtract(fd fileDesc, rs io.ReadSeeker, docPos *DocPositions) (
 	[]DocPageText, error) {
-
 	pdfPageProcessor, err := CreatePDFPageProcessorReader(fd.InPath, rs)
 	if err != nil {
 		return nil, err

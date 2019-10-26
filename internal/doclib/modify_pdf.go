@@ -173,7 +173,7 @@ func (l *ExtractList) SaveOutputPdf(outPath string) error {
 		h := mediaBox.Ury
 		shift := 2.0 // !@#$ Hack to line up highlight box
 		for _, r := range pageContent.rects {
-			common.Log.Info("SaveOutputPdf: %q:%d %s", filepath.Base(src.inPath), src.pageNum, rectString(r))
+			common.Log.Debug("SaveOutputPdf: %q:%d %s", filepath.Base(src.inPath), src.pageNum, rectString(r))
 			rect := c.NewRectangle(r.Llx, h-r.Lly+shift, r.Urx-r.Llx, -(r.Ury - r.Lly + shift))
 			rect.SetBorderColor(creator.ColorRGBFromHex("#ffffff")) // White border shadow.
 			rect.SetBorderWidth(BorderWidth + 2*ShadowWidth)

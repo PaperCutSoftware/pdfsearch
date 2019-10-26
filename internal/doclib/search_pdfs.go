@@ -18,6 +18,8 @@ import (
 	"time"
 
 	"github.com/blevesearch/bleve"
+	"github.com/blevesearch/bleve/analysis"
+	"github.com/blevesearch/bleve/registry"
 	"github.com/blevesearch/bleve/search"
 	"github.com/blevesearch/bleve/search/query"
 	"github.com/unidoc/unipdf/v3/common"
@@ -180,27 +182,45 @@ func SearchPersistentPdfIndex(persistDir, term string, maxResults int) (PdfMatch
 // SearchBleveIndex performs a bleve search on `index `for `term` and returns up to
 // `maxResults` matches. It maps the results to PDF page names, page numbers, line
 // numbers and page locations using `blevePdf`.
-func (blevePdf *BlevePdf) SearchBleveIndex(index bleve.Index, term string, maxResults int) (
+func (blevePdf *BlevePdf) SearchBleveIndex(index bleve.Index, term0 string, maxResults int) (
 	PdfMatchSet, error) {
 	p := PdfMatchSet{}
-	common.Log.Info("SearchBleveIndex: term=%q maxResults=%d", term, maxResults)
+	common.Log.Info("SearchBleveIndex: term0=%q maxResults=%d", term0, maxResults)
 
 	if blevePdf.Len() == 0 {
 		common.Log.Info("SearchBleveIndex: Empty positions store %s", blevePdf)
 		return p, nil
 	}
 
-	query0 := bleve.NewMatchQuery(term)
-	query0.SetOperator(query.MatchQueryOperatorAnd)
-	query0.SetBoost(10.0)
-	// query0.Fuzziness = 1
+	cache := registry.NewCache()
+	analyzer, err := cache.AnalyzerNamed("en")
+	if err != nil {
+		panic(err)
+	}
+	tokens := analyzer.Analyze([]byte(term0))
+	common.Log.Info("term0=%q", term0)
+	common.Log.Info("tokens=%d", len(tokens))
+	for i, t := range tokens {
+		common.Log.Info("%4d: %v", i, t)
+	}
+	// var terms []string
+	// for _, tok := range tokens {
+	// 	terms = append(terms, string(tok.Term))
+	// }
+	// term := strings.Join(terms, " ")
+	term := term0
+
+	// query0 := bleve.NewMatchQuery(term)
+	// query0.SetOperator(query.MatchQueryOperatorAnd)
+	// query0.SetBoost(10.0)
+	// // query0.Fuzziness = 1
 	// query0.Analyzer = "en"
 	query1 := bleve.NewMatchQuery(term)
 	query1.SetOperator(query.MatchQueryOperatorOr)
-	// query1.Analyzer = "en"
-	// query1.Fuzziness = 1
-	queryX := bleve.NewDisjunctionQuery(query0, query1)
-	// queryX := query1
+	query1.Analyzer = "en"
+	query1.Fuzziness = 1
+	// queryX := bleve.NewDisjunctionQuery(query0, query1)
+	queryX := query1
 	search := bleve.NewSearchRequest(queryX)
 	search.Highlight = bleve.NewHighlight()
 	search.Fields = []string{"Text"}
@@ -211,6 +231,7 @@ func (blevePdf *BlevePdf) SearchBleveIndex(index bleve.Index, term string, maxRe
 	if err != nil {
 		return p, err
 	}
+	// panic("done")
 
 	common.Log.Info("=================!!!=====================")
 	common.Log.Info("search.Size=%d", search.Size)
@@ -227,7 +248,7 @@ func (blevePdf *BlevePdf) SearchBleveIndex(index bleve.Index, term string, maxRe
 		common.Log.Info("%3d: %4.2f %3d %q", i, hit.Score, hit.Size(), hit.String())
 	}
 
-	return blevePdf.srToMatchSet(term, searchResults)
+	return blevePdf.srToMatchSet(tokens, searchResults)
 }
 
 // truncate truncates `text` to its first `n` characters.
@@ -240,11 +261,11 @@ func truncate(text string, n int) string {
 
 // srToMatchSet maps bleve search results `sr` to PDF page names, page numbers, line
 // numbers and page locations using the tables in `blevePdf`.
-func (blevePdf *BlevePdf) srToMatchSet(fullTerm string, sr *bleve.SearchResult) (PdfMatchSet, error) {
+func (blevePdf *BlevePdf) srToMatchSet(tokens analysis.TokenStream, sr *bleve.SearchResult) (PdfMatchSet, error) {
 	var matches []PdfMatch
 	if sr.Total > 0 && sr.Request.Size > 0 {
 		for _, hit := range sr.Hits {
-			m, err := blevePdf.hitToPdfMatch(fullTerm, hit)
+			m, err := blevePdf.hitToPdfMatch(tokens, hit)
 			if err != nil {
 				if err == ErrNoMatch {
 					continue
@@ -314,8 +335,8 @@ func (s PdfMatchSet) Files() []string {
 // The returned PdfMatch also contains information that is not in `hit` that is looked up in `blevePdf`.
 // We purposely try to keep `hit` small to improve bleve indexing speed and to reduce the
 // bleve index size.
-func (blevePdf *BlevePdf) hitToPdfMatch(fullTerm string, hit *search.DocumentMatch) (PdfMatch, error) {
-	m, err := hitToBleveMatch(fullTerm, hit)
+func (blevePdf *BlevePdf) hitToPdfMatch(tokens analysis.TokenStream, hit *search.DocumentMatch) (PdfMatch, error) {
+	m, err := hitToBleveMatch(tokens, hit)
 	if err != nil {
 		return PdfMatch{}, err
 	}
@@ -364,32 +385,25 @@ type Phrase struct {
 	end       int
 }
 
-func bestPhrases(fullTerm string, termLocMap search.TermLocationMap) []Phrase {
+func bestPhrases(tokens analysis.TokenStream, termLocMap search.TermLocationMap) []Phrase {
 	var terms []string
-	for term := range termLocMap {
-		terms = append(terms, term)
+	for _, tok := range tokens {
+		terms = append(terms, string(tok.Term))
 	}
-	common.Log.Info("bestPhrases: [before] terms=%d %q fullTerm=%q", len(terms), terms, fullTerm)
-	sort.Slice(terms, func(i, j int) bool {
-		ti, tj := terms[i], terms[j]
-		pi := strings.Index(fullTerm, ti)
-		if pi < 0 {
-			panic(ti)
-		}
-		pj := strings.Index(fullTerm, tj)
-		if pj < 0 {
-			panic(tj)
-		}
-		return pi < pj
-	})
-	common.Log.Info("bestPhrases: [after ] terms=%d %q", len(terms), terms)
+	common.Log.Info("bestPhrases: terms=%d %q", len(terms), terms)
 
 	termPositions := map[string]map[int]struct{}{}
 	startMap := map[int]struct{}{}
 	posLoc := map[int]search.Location{}
 
+	var matchedTerms []string
 	for i, term := range terms {
-		locs := termLocMap[term]
+		locs, ok := termLocMap[term]
+		if !ok {
+			common.Log.Info("term=%9q no match", term)
+			continue
+		}
+		matchedTerms = append(matchedTerms, term)
 		termPositions[term] = map[int]struct{}{}
 		for _, loc := range locs {
 			pos := int(loc.Pos)
@@ -404,6 +418,12 @@ func bestPhrases(fullTerm string, termLocMap search.TermLocationMap) []Phrase {
 			common.Log.Info("term=%9q pos=%3d startPos=%3d posLoc=%d startMap=%d",
 				term, pos, startPos, len(posLoc), len(startMap))
 		}
+	}
+	if len(matchedTerms) == len(terms) {
+		common.Log.Info("all terms matched!")
+		panic("success")
+	} else {
+		common.Log.Info("all terms NOT matched! %d %v", len(matchedTerms), matchedTerms)
 	}
 
 	var starts []int
@@ -468,7 +488,7 @@ func bestPhrases(fullTerm string, termLocMap search.TermLocationMap) []Phrase {
 }
 
 // hitToBleveMatch returns a bleveMatch filled with the information in `hit` that comes from bleve.
-func hitToBleveMatch(fullTerm string, hit *search.DocumentMatch) (bleveMatch, error) {
+func hitToBleveMatch(tokens analysis.TokenStream, hit *search.DocumentMatch) (bleveMatch, error) {
 	docIdx, pageIdx, err := decodeID(hit.ID)
 	if err != nil {
 		return bleveMatch{}, err
@@ -487,7 +507,7 @@ func hitToBleveMatch(fullTerm string, hit *search.DocumentMatch) (bleveMatch, er
 		}
 		termLocMap := hit.Locations[k]
 		common.Log.Info("%q: %d %q", k, len(termLocMap), frags.String())
-		phrases = bestPhrases(fullTerm, termLocMap)
+		phrases = bestPhrases(tokens, termLocMap)
 	}
 
 	var spans []Span

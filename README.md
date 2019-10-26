@@ -76,6 +76,7 @@ Remove !@#$'s
 Remove uint32 etc
 Remove abstraction layers, especially unidoc_glue.go
 Get free text search working
+Detect language https://blevesearch.com/docs/Analyzers/
 
 References
 ----------

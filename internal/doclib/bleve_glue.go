@@ -20,6 +20,9 @@ import (
 // If `forceCreate` is true then an existing index will be deleted.
 func createBleveDiskIndex(indexPath string, forceCreate bool) (bleve.Index, error) {
 	mapping := bleve.NewIndexMapping()
+	docMapping := bleve.NewDocumentMapping()
+	docMapping.DefaultAnalyzer = "en"
+	mapping.DefaultMapping = docMapping
 	index, err := bleve.New(indexPath, mapping)
 	if err == bleve.ErrorIndexPathExists {
 		common.Log.Error("Bleve index %q exists.", indexPath)
@@ -38,6 +41,12 @@ func createBleveDiskIndex(indexPath string, forceCreate bool) (bleve.Index, erro
 // createBleveMemIndex creates a new in-memory (unpersisted) bleve index.
 func createBleveMemIndex() (bleve.Index, error) {
 	mapping := bleve.NewIndexMapping()
+	docMapping := bleve.NewDocumentMapping()
+	docMapping.DefaultAnalyzer = "en"
+	mapping.DefaultMapping = docMapping
+
+	common.Log.Info("mapping=%+v", mapping)
+	common.Log.Info("mapping.DefaultMapping=%+v", mapping.DefaultMapping)
 	index, err := bleve.NewMemOnly(mapping)
 	return index, err
 }

@@ -32,3 +32,8 @@ require (
 	gonum.org/v1/gonum v0.0.0-20191009222026-5d5638e6749a // indirect
 )
 
+replace (
+	github.com/blevesearch/bleve => /Users/peter/go-work/src/github.com/blevesearch/bleve
+	github.com/peterwilliams97/blevex => /Users/peter/go-work/src/github.com/peterwilliams97/blevex
+	github.com/unidoc/unipdf/v3 => /Users/peter/go-work/src/github.com/unidoc/unipdf
+)

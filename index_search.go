@@ -187,14 +187,11 @@ func (p PdfIndex) Search(term string, maxResults int) (PdfMatchSet, error) {
 	var err error
 	if !p.persist {
 		s, err = p.blevePdf.SearchBleveIndex(p.bleveIdx, term, maxResults)
-		if err != nil {
-			return PdfMatchSet{}, err
-		}
 	} else {
 		s, err = doclib.SearchPersistentPdfIndex(p.persistDir, term, maxResults)
-		if err != nil {
-			return PdfMatchSet{}, err
-		}
+	}
+	if err != nil {
+		return PdfMatchSet{}, err
 	}
 
 	results := PdfMatchSet(s)
