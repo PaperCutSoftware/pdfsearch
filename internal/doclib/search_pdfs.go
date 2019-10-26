@@ -19,9 +19,9 @@ import (
 
 	"github.com/blevesearch/bleve"
 	"github.com/blevesearch/bleve/analysis"
+	"github.com/blevesearch/bleve/analysis/lang/en"
 	"github.com/blevesearch/bleve/registry"
 	"github.com/blevesearch/bleve/search"
-	"github.com/blevesearch/bleve/search/query"
 	"github.com/unidoc/unipdf/v3/common"
 )
 
@@ -193,7 +193,7 @@ func (blevePdf *BlevePdf) SearchBleveIndex(index bleve.Index, term0 string, maxR
 	}
 
 	cache := registry.NewCache()
-	analyzer, err := cache.AnalyzerNamed("en")
+	analyzer, err := cache.AnalyzerNamed(en.AnalyzerName)
 	if err != nil {
 		panic(err)
 	}
@@ -203,11 +203,6 @@ func (blevePdf *BlevePdf) SearchBleveIndex(index bleve.Index, term0 string, maxR
 	for i, t := range tokens {
 		common.Log.Info("%4d: %v", i, t)
 	}
-	// var terms []string
-	// for _, tok := range tokens {
-	// 	terms = append(terms, string(tok.Term))
-	// }
-	// term := strings.Join(terms, " ")
 	term := term0
 
 	// query0 := bleve.NewMatchQuery(term)
@@ -216,9 +211,9 @@ func (blevePdf *BlevePdf) SearchBleveIndex(index bleve.Index, term0 string, maxR
 	// // query0.Fuzziness = 1
 	// query0.Analyzer = "en"
 	query1 := bleve.NewMatchQuery(term)
-	query1.SetOperator(query.MatchQueryOperatorOr)
-	query1.Analyzer = "en"
-	query1.Fuzziness = 1
+	// query1.SetOperator(query.MatchQueryOperatorOr)
+	// query1.Analyzer = "en"
+	// query1.Fuzziness = 1
 	// queryX := bleve.NewDisjunctionQuery(query0, query1)
 	queryX := query1
 	search := bleve.NewSearchRequest(queryX)
@@ -231,7 +226,6 @@ func (blevePdf *BlevePdf) SearchBleveIndex(index bleve.Index, term0 string, maxR
 	if err != nil {
 		return p, err
 	}
-	// panic("done")
 
 	common.Log.Info("=================!!!=====================")
 	common.Log.Info("search.Size=%d", search.Size)
@@ -421,7 +415,6 @@ func bestPhrases(tokens analysis.TokenStream, termLocMap search.TermLocationMap)
 	}
 	if len(matchedTerms) == len(terms) {
 		common.Log.Info("all terms matched!")
-		panic("success")
 	} else {
 		common.Log.Info("all terms NOT matched! %d %v", len(matchedTerms), matchedTerms)
 	}

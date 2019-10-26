@@ -7,7 +7,9 @@ import (
 	"path/filepath"
 
 	"github.com/blevesearch/bleve"
+	"github.com/blevesearch/bleve/analysis/lang/en"
 	btreap "github.com/blevesearch/bleve/index/store/gtreap"
+	"github.com/blevesearch/bleve/mapping"
 	"github.com/papercutsoftware/pdfsearch/internal/utils"
 	"github.com/unidoc/unipdf/v3/common"
 
@@ -19,10 +21,7 @@ import (
 // createBleveDiskIndex creates a new persistent bleve index at `indexPath`.
 // If `forceCreate` is true then an existing index will be deleted.
 func createBleveDiskIndex(indexPath string, forceCreate bool) (bleve.Index, error) {
-	mapping := bleve.NewIndexMapping()
-	docMapping := bleve.NewDocumentMapping()
-	docMapping.DefaultAnalyzer = "en"
-	mapping.DefaultMapping = docMapping
+	mapping := buildIndexMapping()
 	index, err := bleve.New(indexPath, mapping)
 	if err == bleve.ErrorIndexPathExists {
 		common.Log.Error("Bleve index %q exists.", indexPath)
@@ -40,15 +39,33 @@ func createBleveDiskIndex(indexPath string, forceCreate bool) (bleve.Index, erro
 
 // createBleveMemIndex creates a new in-memory (unpersisted) bleve index.
 func createBleveMemIndex() (bleve.Index, error) {
-	mapping := bleve.NewIndexMapping()
-	docMapping := bleve.NewDocumentMapping()
-	docMapping.DefaultAnalyzer = "en"
-	mapping.DefaultMapping = docMapping
-
+	mapping := buildIndexMapping()
 	common.Log.Info("mapping=%+v", mapping)
-	common.Log.Info("mapping.DefaultMapping=%+v", mapping.DefaultMapping)
 	index, err := bleve.NewMemOnly(mapping)
 	return index, err
+}
+
+// buildIndexMapping is from the bleve beer example code.
+// It returns an IndexMapping that gives an English text Analyer of the Text field
+func buildIndexMapping() mapping.IndexMapping {
+	// a generic reusable mapping for english text
+	englishTextFieldMapping := bleve.NewTextFieldMapping()
+	englishTextFieldMapping.Analyzer = en.AnalyzerName
+
+	// // a generic reusable mapping for keyword text
+	// keywordFieldMapping := bleve.NewTextFieldMapping()
+	// keywordFieldMapping.Analyzer = keyword.Name
+
+	pdfMapping := bleve.NewDocumentMapping()
+
+	// Text
+	pdfMapping.AddFieldMappingsAt("Text", englishTextFieldMapping)
+
+	indexMapping := bleve.NewIndexMapping()
+	indexMapping.AddDocumentMapping("pdf", pdfMapping)
+	indexMapping.TypeField = "type"
+	indexMapping.DefaultAnalyzer = "en"
+	return indexMapping
 }
 
 // removeBleveDiskIndex removes the bleve index persistent data in `indexPath` from disk.
