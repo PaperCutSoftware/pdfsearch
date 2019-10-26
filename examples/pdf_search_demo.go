@@ -13,6 +13,7 @@ import (
 
 	"github.com/papercutsoftware/pdfsearch"
 	"github.com/papercutsoftware/pdfsearch/examples/cmd_utils"
+	"github.com/papercutsoftware/pdfsearch/internal/utils"
 )
 
 const usage = `Usage: go run pdf_search_demo.go [OPTIONS] -f "pcng-manual*.pdf"  PaperCut NG
@@ -32,6 +33,7 @@ func main() {
 	var nameOnly bool
 	maxSearchResults := 10
 	outPath := "search.results.pdf"
+	outDir := "search.history"
 
 	flag.StringVar(&pathPattern, "f", pathPattern, "PDF file(s) to index.")
 	flag.StringVar(&outPath, "o", outPath, "Name of PDF file that will show marked up results.")
@@ -55,6 +57,8 @@ func main() {
 
 	// The term to search for.
 	term := strings.Join(flag.Args(), " ")
+	// File extension based on term.
+	termExt := strings.Join(flag.Args(), ".")
 
 	// Resolve conflicts in command line options.
 	if reuse && serialize {
@@ -92,7 +96,12 @@ func main() {
 	// Run the tests.
 	if err := runIndexSearchShow(pathList, term, persistDir, serialize, persist, reuse, nameOnly,
 		maxResults, outPath); err != nil {
-		fmt.Fprintf(os.Stderr, "runIndexSearchShow failed. err-%v\n", err)
+		fmt.Fprintf(os.Stderr, "runIndexSearchShow failed. err=%v\n", err)
+		os.Exit(1)
+	}
+	// Save a copy of the marked up file for posterity.
+	if err := copyMarkedupResults(outDir, outPath, pathPattern, termExt); err != nil {
+		fmt.Fprintf(os.Stderr, "copyMarkedupResults failed. err=%v\n", err)
 		os.Exit(1)
 	}
 }
@@ -240,6 +249,27 @@ func showResults(pathList []string, pdfIndex pdfsearch.PdfIndex, results pdfsear
 		numPages, len(pathList), showList,
 		pdfIndex.Duration(),
 		outPath)
+	return nil
+}
+
+// copyMarkedupResults saves a copy of the PDF in `outPath` in the search history directory `outDir`.
+// The file name is synthesized from `pathPattern`, the PDFs in the index and `termExt` the search
+// term with spaces replaced by periods.
+func copyMarkedupResults(outDir, outPath, pathPattern, termExt string) error {
+	base := filepath.Base(pathPattern)
+	base = strings.Replace(base, "*", "_all_", -1)
+	base = utils.ChangePathExt(base, "")
+	base = fmt.Sprintf("%s.%s.pdf", base, termExt)
+	outPath2 := filepath.Join(outDir, base)
+	err := utils.MkDir(outDir)
+	if err != nil {
+		return err
+	}
+	err = utils.CopyFile(outPath, outPath2)
+	if err != nil {
+		return err
+	}
+	fmt.Printf("Marked up search results in %q\n", outPath2)
 	return nil
 }
 
