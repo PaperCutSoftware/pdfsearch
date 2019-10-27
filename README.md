@@ -1,5 +1,4 @@
-Pure Go Full Text Search of PDF Files
-=====================================
+# Pure Go Full Text Search of PDF Files
 
 This library implements full text search for PDF files.
 * The public APIs are in [index_search.go](index_search.go).
@@ -11,8 +10,8 @@ The are some command lines programs that demonstrate the library's functionality
 * [examples/index.go](examples/index.go) builds an index over a set of PDFs.
 * [examples/search.go](examples/sear.go) searches the index build by [examples/index.go](examples/index.go).
 
-Installation
--------------
+## Installation
+
     git clone https://github.com/PaperCutSoftware/pdfsearch
     cd pdfsearch/examples
     go build -ldflags "-s -w" pdf_search_demo.go
@@ -20,14 +19,13 @@ Installation
 
     (Gives a 6,377,488  byte binary on Peter's macbook)
 
-[examples/index.go](examples/index.go)
---------------------------------------
+### [examples/pdf_search_demo.go](examples/pdf_search_demo.go)
 
 Usage: `./pdf_search_demo  -f PDF32000_2008.pdf cubic Bézier curve`
 
-This will search `PDF32000_2008.pdf`, the PDF spec, for _cubic Bézier curve_
+This will search `PDF32000_2008.pdf`, the PDF spec, for _cubic Bézier curve_.
 
-`pdf_search_demo.go`   shows how to use the APIs in[index_search.go](index_search.go) to
+`pdf_search_demo.go` shows how to use the APIs in [index_search.go](index_search.go) to
 * create indexes over PDF files,
 * search those indexes using full-text search, and
 * mark up PDF files with the locations of the search matches on pages.
@@ -37,28 +35,22 @@ It has 3 types of index
 * In-memory with the index stored in a Go struct. Faster but limited to (virtual) memory size.
 * In-memory with the index serialized to a []byte. Useful for non-Go callers such as web apps.
 
-[examples/index.go](examples/index.go)
---------------------------------------
+### [examples/index.go](examples/index.go)
 
 Usage: `./index ~/climate/*.pdf`
 
 This creates an on-disk index over the PDFs in `~/climate/*.pdf`.
 
-
-[examples/search.go](examples/search.go)
---------------------------------------
+### [examples/search.go](examples/search.go)
 
 Usage: `./search integrated assessment model`
 
 This searches the on-disk index created by [examples/index.go](examples/index.go)
 for _integrated assessment model_.
 
+## Libraries
 
-Libraries
---------
-
-This simple programs  uses [UniDoc](https://unidoc.io/) for PDF parsing and [bleve](http://github.com/blevesearch/bleve) for search.  It can be used explore the UniDoc and Bleve libraries.
-
+[index_search.go](index_search.go) uses [UniDoc](https://unidoc.io/) for PDF parsing and [bleve](http://github.com/blevesearch/bleve) for search.
 
 
 ### Page Indexing
@@ -66,8 +58,7 @@ https://www.hathitrust.org/blogs/large-scale-search/tale-two-solrs-0
 
 https://www.hathitrust.org/full-text-search-features-and-analysis
 
-TIMINGS
--------
+### Timings
 
 	Some timings from Peter's old MacBook:
 
