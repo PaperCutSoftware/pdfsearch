@@ -96,7 +96,7 @@ func (ppos PagePositions) BBox(start, end uint32) (model.PdfRectangle, bool) {
 	if bbox.Height() > 200 || bbox.Width() > 200 {
 		// TODO Remove panic
 		for i := i0 + 1; i < i1; i++ {
-			common.Log.Error("i=%d bbox=%v", i, ppos.offsetBBoxes[i].BBox())
+			common.Log.Debug("i=%d bbox=%v", i, ppos.offsetBBoxes[i].BBox())
 		}
 		if bbox.Height() > 200 {
 			panic(fmt.Errorf("bbox=%+v start=%d end=%d", bbox, start, end))

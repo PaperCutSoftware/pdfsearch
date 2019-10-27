@@ -140,7 +140,7 @@ func main() {
 // It also creates a marked-up PDF containing the original PDF pages with the matched terms marked
 //  and saves it to `outPath`.
 // This is the main test function. The runIndexSearch() function is calls shows you how to create an
-// index annd search it.
+// index and search it.
 //
 //  `persistDir`: The directory the pdfsearch.PdfIndex is saved in if `persist` is true.
 //  `serialize`: Serialize in-memory pdfsearch.PdfIndex to a []byte.
@@ -294,7 +294,7 @@ func runAllModes(pathList []string, term, persistDir string, nameOnly bool, maxR
 
 // runIndexSearch creates a pdfsearch.PdfIndex for the PDF files in `pathList`, searches for `term` in
 // this index and returns the pdfsearch.PdfIndex, the search results and the indexing and search durations.
-// This is the main function. It shows you how to create an index annd search it.
+// This is the main function. It shows you how to create an index and search it.
 //
 //  `persistDir`: The directory the pdfsearch.PdfIndex is saved in if `persist` is true.
 //  `serialize`: Serialize in-memory pdfsearch.PdfIndex to a []byte.
