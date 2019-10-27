@@ -63,7 +63,7 @@ func IndexPdfFilesOrReaders(pathList []string, rsList []io.ReadSeeker, persistDi
 	forceCreate bool, report func(string)) (*BlevePdf, bleve.Index,
 	int, int, time.Duration, time.Duration, error) {
 	useReaders := len(rsList) > 0
-	common.Log.Info("Indexing %d PDF files. useReaders=%t forceCreate=%t",
+	common.Log.Debug("Indexing %d PDF files. useReaders=%t forceCreate=%t",
 		len(pathList), useReaders, forceCreate)
 	var dtPdf, dtBleve, dtP, dtB time.Duration
 
@@ -84,7 +84,7 @@ func IndexPdfFilesOrReaders(pathList []string, rsList []io.ReadSeeker, persistDi
 		}
 	} else {
 		indexPath := filepath.Join(persistDir, "bleve")
-		common.Log.Info("indexPath=%q", indexPath)
+		common.Log.Debug("indexPath=%q", indexPath)
 		// Create a new Bleve index.
 		index, err = createBleveDiskIndex(indexPath, forceCreate)
 		if err != nil {

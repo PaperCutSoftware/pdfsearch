@@ -64,38 +64,30 @@ func runIndexShow(pathList []string, persistDir string) error {
 
 // runIndex creates a pdfsearch.PdfIndex for the PDF files in `pathList` and returns the
 // pdfsearch.PdfIndex, the search results and the indexing duration.
-// `persistDir` is rhe directory the pdfsearch.PdfIndex is saved in.
+// Rhe pdfsearch.PdfIndex is saved in directory `persistDir`.
 // This is the main function. It shows you how to create or open an index.
-func runIndex(pathList []string, persistDir string) (
-	pdfIndex pdfsearch.PdfIndex, dt time.Duration, err error) {
-
-	fmt.Fprintf(os.Stderr, "@@@@ %d files\n", len(pathList)) // TODO: Remove @@@@
+func runIndex(pathList []string, persistDir string) (pdfIndex pdfsearch.PdfIndex, dt time.Duration,
+	err error) {
+	fmt.Fprintf(os.Stderr, "Indexing %d files. Index stored in %q.\n", len(pathList), persistDir)
 
 	t0 := time.Now()
-
 	pdfIndex, err = pdfsearch.IndexPdfFiles(pathList, true, persistDir, report)
 	if err != nil {
 		return pdfIndex, dt, err
 	}
-
 	dt = time.Since(t0)
-
 	return pdfIndex, dt, nil
 }
 
 // showIndex writes a report on  on `pdfIndex` that was build from the PDF files in `pathList`.
-//  `dt` is the duration of the indexing.
+// `dt` is the duration of the indexing.
 func showIndex(pathList []string, pdfIndex pdfsearch.PdfIndex, dt time.Duration) error {
-
-	fmt.Println("=================xxx=====================")
-
 	numFiles := pdfIndex.NumFiles()
 	numPages := pdfIndex.NumPages()
 	pagesSec := 0.0
 	if dt.Seconds() >= 0.01 {
 		pagesSec = float64(numPages) / dt.Seconds()
 	}
-
 	fmt.Fprintf(os.Stderr, "%d pages in %d files (%.1f pages/min)\n",
 		numPages, numFiles, pagesSec*60.0)
 	fmt.Fprintf(os.Stderr, "%s\n", pdfIndex)

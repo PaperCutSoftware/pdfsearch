@@ -67,7 +67,7 @@ func CreateExtractList(maxPages, maxPerPage int) *ExtractList {
 func (l *ExtractList) AddRect(inPath string, pageNum uint32, r model.PdfRectangle) {
 	common.Log.Debug("AddRect: %q %3d %v", filepath.Base(inPath), pageNum, r)
 	if pageNum == 0 {
-		common.Log.Error("inPath=%q pageNum=%d", inPath, pageNum)
+		common.Log.Error("inPath=%q pageNum=%d should never happen", inPath, pageNum)
 		panic("pageNum = 0")
 	}
 	pathPage := fmt.Sprintf("%s.%d", inPath, pageNum)
@@ -97,7 +97,7 @@ func (l *ExtractList) AddRect(inPath string, pageNum uint32, r model.PdfRectangl
 
 const (
 	// BorderWidth is the width of rectangle sides in points
-	BorderWidth = 3.0
+	BorderWidth = 1.0
 	// ShadowWidth is the with of the shadow on the inside and outside of the rectangles
 	ShadowWidth = 0.2
 )
@@ -173,6 +173,10 @@ func (l *ExtractList) SaveOutputPdf(outPath string) error {
 		h := mediaBox.Ury
 		shift := 2.0 // !@#$ Hack to line up highlight box
 		for _, r := range pageContent.rects {
+			r.Llx -= BorderWidth
+			r.Lly -= BorderWidth
+			r.Urx += BorderWidth
+			r.Ury += BorderWidth
 			common.Log.Debug("SaveOutputPdf: %q:%d %s", filepath.Base(src.inPath), src.pageNum, rectString(r))
 			rect := c.NewRectangle(r.Llx, h-r.Lly+shift, r.Urx-r.Llx, -(r.Ury - r.Lly + shift))
 			rect.SetBorderColor(creator.ColorRGBFromHex("#ffffff")) // White border shadow.

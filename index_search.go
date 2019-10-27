@@ -181,7 +181,7 @@ func (p PdfIndex) Search(term string, maxResults int) (PdfMatchSet, error) {
 	if maxResults < 0 {
 		maxResults = DefaultMaxResults
 	}
-	common.Log.Info("maxResults=%d DefaultMaxResults=%d", maxResults, DefaultMaxResults)
+	common.Log.Debug("maxResults=%d DefaultMaxResults=%d", maxResults, DefaultMaxResults)
 
 	var s doclib.PdfMatchSet
 	var err error
@@ -195,12 +195,13 @@ func (p PdfIndex) Search(term string, maxResults int) (PdfMatchSet, error) {
 	}
 
 	results := PdfMatchSet(s)
-	common.Log.Info("PdfIndex.Search: results (before)================|||================")
-	common.Log.Info("%s", results.String())
+	common.Log.Debug("PdfIndex.Search: results (before)================|||================")
+	common.Log.Debug("%s", results.String())
 	// This is where were we select the best results to show
 	results = results.Best()
-	common.Log.Info("PdfIndex.Search: results (after )================---================")
-	common.Log.Info("%s", results.String())
+	common.Log.Debug("PdfIndex.Search: results (after )================***================")
+	common.Log.Debug("%s", results.String())
+	common.Log.Debug("PdfIndex.Search: results (after )================---================")
 	return results, err
 }
 
@@ -212,13 +213,13 @@ func MarkupPdfResults(results PdfMatchSet, outPath string) error {
 	maxPages := 100
 	maxPerPage := 10
 	extractList := doclib.CreateExtractList(maxPages, maxPerPage)
-	common.Log.Info("=================!!!=====================")
-	common.Log.Info("Matches=%d", len(results.Matches))
+	common.Log.Debug("=================!!!=====================")
+	common.Log.Debug("Matches=%d", len(results.Matches))
 	for i, m := range results.Matches {
 		inPath := m.InPath
 		pageNum := m.PageNum
 		ppos := m.PagePositions
-		common.Log.Info("  %d: ppos=%s m=%s", i, ppos, m)
+		common.Log.Debug("  %d: ppos=%s m=%s", i, ppos, m)
 		if ppos.Empty() {
 			return errors.New("no Locations")
 		}

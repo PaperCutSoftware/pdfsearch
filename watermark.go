@@ -160,7 +160,6 @@ func AddImageToPdf(rs io.ReadSeeker, w io.Writer, image goimage.Image, url strin
 		// Apply the image to the specified page or all pages if 0.
 		if pNum == pageNum || pageNum == 0 {
 			x, y := loc.coords(w, h)
-			// fmt.Printf("*** pagePosition=%d => %.1f, %.1f\n", pagePosition, x, y)
 
 			if len(url) != 0 {
 				p := c.NewStyledParagraph()

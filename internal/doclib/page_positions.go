@@ -77,6 +77,8 @@ func (ppos PagePositions) BBox(start, end uint32) (model.PdfRectangle, bool) {
 	i0, ok0 := ppos.positionIndex(start)
 	i1, ok1 := ppos.positionIndex(end)
 	if !(ok0 && ok1) {
+		common.Log.Error("start=%d i0=%d ok0=%t end=%d i1=%d ok1=%t",
+			start, i0, ok0, end, i1, ok1)
 		return model.PdfRectangle{}, false
 	}
 	if i1 <= i0 {
@@ -92,6 +94,7 @@ func (ppos PagePositions) BBox(start, end uint32) (model.PdfRectangle, bool) {
 		bbox = rectUnion(bbox, b)
 	}
 	if bbox.Height() > 200 || bbox.Width() > 200 {
+		// TODO Remove panic
 		for i := i0 + 1; i < i1; i++ {
 			common.Log.Error("i=%d bbox=%v", i, ppos.offsetBBoxes[i].BBox())
 		}

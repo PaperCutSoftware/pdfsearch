@@ -40,9 +40,7 @@ func createBleveDiskIndex(indexPath string, forceCreate bool) (bleve.Index, erro
 // createBleveMemIndex creates a new in-memory (unpersisted) bleve index.
 func createBleveMemIndex() (bleve.Index, error) {
 	mapping := buildIndexMapping()
-	common.Log.Info("mapping=%+v", mapping)
-	index, err := bleve.NewMemOnly(mapping)
-	return index, err
+	return bleve.NewMemOnly(mapping)
 }
 
 // buildIndexMapping is from the bleve beer example code.

@@ -303,9 +303,6 @@ func runAllModes(pathList []string, term, persistDir string, nameOnly bool, maxR
 //  `maxResults`: Max number of search results to return.
 func runIndexSearch(pathList []string, term, persistDir string, serialize, persist, reuse bool, maxResults int) (
 	pdfIndex pdfsearch.PdfIndex, results pdfsearch.PdfMatchSet, dt, dtIndex time.Duration, err error) {
-
-	fmt.Fprintf(os.Stderr, "@@@@ %t %t %d %q\n", serialize, persist, len(pathList), pathList)
-
 	t0 := time.Now()
 	var data []byte
 	if reuse {
@@ -377,7 +374,6 @@ func showResults(pathList []string, pdfIndex pdfsearch.PdfIndex, results pdfsear
 			fmt.Printf("%4d: %q\n", i, fn)
 		}
 	} else {
-
 		fmt.Println("=================+++=====================")
 		fmt.Printf("%+v\n", results)
 		fmt.Println("=================xxx=====================")
@@ -386,7 +382,6 @@ func showResults(pathList []string, pdfIndex pdfsearch.PdfIndex, results pdfsear
 	if err := pdfsearch.MarkupPdfResults(results, outPath); err != nil {
 		return err
 	}
-	fmt.Println("=================+++=====================")
 
 	numPages := pdfIndex.NumPages()
 	pagesSec := 0.0
