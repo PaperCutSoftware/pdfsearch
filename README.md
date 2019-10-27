@@ -14,10 +14,10 @@ The are some command lines programs that demonstrate the library's functionality
 
     git clone https://github.com/PaperCutSoftware/pdfsearch
     cd pdfsearch/examples
-    go build -ldflags "-s -w" pdf_search_demo.go
-    upx pdf_search_demo
-
-    (Gives a 6,377,488  byte binary on Peter's macbook)
+    go build pdf_search_demo.go
+    go build pdf_search_verify.go
+    go build index.go
+    go build search.go
 
 ### [examples/pdf_search_demo.go](examples/pdf_search_demo.go)
 
