@@ -1,7 +1,5 @@
 module github.com/papercutsoftware/pdfsearch
 
-go 1.12
-
 require (
 	github.com/RoaringBitmap/roaring v0.4.21 // indirect
 	github.com/blevesearch/bleve v0.8.1
