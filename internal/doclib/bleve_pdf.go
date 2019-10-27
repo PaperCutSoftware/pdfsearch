@@ -397,7 +397,7 @@ func (blevePdf *BlevePdf) extractDocPagePositionsReader(inPath string, rs io.Rea
 	}
 	// We need to do be able to back out of partially added entries in blevePdf.
 	// The DocPositions is added near the end of blevePdf.doExtract():
-	//		See blevePdf.hashDoc[fd.Hash] = docPos
+	//      See blevePdf.hashDoc[fd.Hash] = docPos
 	// while other maps are updated earlier in blevePdf.addFile()
 	// Therefore if there is an error and early exit from State.doExtract(), the blevePdf maps will
 	// be inconsistent.
@@ -433,7 +433,7 @@ func (blevePdf *BlevePdf) doExtract(fd fileDesc, rs io.ReadSeeker, docPos *DocPo
 		common.Log.Trace("doExtract: page %d of %d", pageNum, numPages)
 		text, textMarks, err := ExtractPageTextMarks(page)
 		if err != nil {
-			common.Log.Error("ExtractDocPagePositions: ExtractPageTextMarks failed. "+
+			common.Log.Debug("ExtractDocPagePositions: ExtractPageTextMarks failed. "+
 				"%s pageNum=%d err=%v", fd, pageNum, err)
 			return nil // !@#$ Skip errors for now
 		}
