@@ -21,9 +21,11 @@ The are some command lines programs that demonstrate the library's functionality
 
 ### [examples/pdf_search_demo.go](examples/pdf_search_demo.go)
 
-Usage: `./pdf_search_demo  -f PDF32000_2008.pdf cubic Bézier curve`
+Usage: `./pdf_search_demo  -f <PDF path> <search term>`
 
-This will search `PDF32000_2008.pdf`, the PDF spec, for _cubic Bézier curve_.
+Example: `./pdf_search_demo  -f PDF32000_2008.pdf cubic Bézier curve`
+
+The example will search `PDF32000_2008.pdf` for _cubic Bézier curve_.
 
 `pdf_search_demo.go` shows how to use the APIs in [index_search.go](index_search.go) to
 * create indexes over PDF files,
@@ -37,15 +39,19 @@ It has 3 types of index
 
 ### [examples/index.go](examples/index.go)
 
-Usage: `./index ~/climate/*.pdf`
+Usage: `./index <file pattern>`
 
-This creates an on-disk index over the PDFs in `~/climate/*.pdf`.
+Example: `./index ~/climate/**/*.pdf`
+
+The example creates an on-disk index over the PDFs in `~/climate/` and its subdirectories.
 
 ### [examples/search.go](examples/search.go)
 
-Usage: `./search integrated assessment model`
+Usage: `./search <search term>`
 
-This searches the on-disk index created by [examples/index.go](examples/index.go)
+Example: `./search integrated assessment model`
+
+The example searches the on-disk index created by [examples/index.go](examples/index.go)
 for _integrated assessment model_.
 
 ## Libraries
