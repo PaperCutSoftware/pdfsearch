@@ -8,7 +8,7 @@ The are some command lines programs that demonstrate the library's functionality
 * [examples/pdf_search_verify.go](examples/pdf_search_verify.go) verifies the consistency of the
   in-memory and on-disk APIs.
 * [examples/index.go](examples/index.go) builds an index over a set of PDFs.
-* [examples/search.go](examples/sear.go) searches the index build by [examples/index.go](examples/index.go).
+* [examples/search.go](examples/search.go) searches the index build by [examples/index.go](examples/index.go).
 
 ## Installation
 
