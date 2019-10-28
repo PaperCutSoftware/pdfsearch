@@ -3,7 +3,6 @@ module github.com/papercutsoftware/pdfsearch
 require (
 	github.com/RoaringBitmap/roaring v0.4.21 // indirect
 	github.com/blevesearch/bleve v0.8.1
-	github.com/blevesearch/blevex v0.0.0-20190916190636-152f0fe5c040 // indirect
 	github.com/bmatcuk/doublestar v1.1.1
 	github.com/couchbase/vellum v0.0.0-20190829182332-ef2e028c01fd // indirect
 	github.com/cznic/b v0.0.0-20181122101859-a26611c4d92d // indirect
