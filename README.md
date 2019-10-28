@@ -10,7 +10,8 @@ The are some command lines programs that demonstrate the library's functionality
 * [examples/index.go](examples/index.go) builds an index over a set of PDFs.
 * [examples/search.go](examples/search.go) searches the index build by [examples/index.go](examples/index.go).
 
-Binary versions (executables) of these four programs are available in [releases](../../releases/tag/v0.0.0).
+Binary versions (executables) of these four programs are available in
+[releases](https://github.com/PaperCutSoftware/pdfsearch/releases/tag/v0.0.0).
 There are 64-bit binaries for Windows, Mac and Linux.
 
 ## Installation
