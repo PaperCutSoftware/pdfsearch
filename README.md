@@ -51,28 +51,3 @@ for _integrated assessment model_.
 ## Libraries
 
 [index_search.go](index_search.go) uses [UniDoc](https://unidoc.io/) for PDF parsing and [bleve](http://github.com/blevesearch/bleve) for search.
-
-
-### Page Indexing
-https://www.hathitrust.org/blogs/large-scale-search/tale-two-solrs-0
-
-https://www.hathitrust.org/full-text-search-features-and-analysis
-
-### Timings
-
-	Some timings from Peter's old MacBook:
-
-	./pdf_search_demo -p -f ~/testdata/adobe/PDF32000_2008.pdf  Type 1
-	[On-disk index] Duration=72.4 sec
-
-	./pdf_search_demo -f ~/testdata/adobe/PDF32000_2008.pdf  Type 1
-	[In-memory index] Duration=22.7 sec
-
-	Timings from Peter's Mac Book Pro.
-	./pdf_search_demo -f ~/testdata/other/pcng/docs/target/output/pcng-manual.pdf  PaperCut NG
-	[In-memory index] Duration=87.3 sec (87.220 index + 0.055 search) (454.4 pages/min)
-	[In-memory index] Duration=91.9 sec (91.886 index + 0.060 search) (431.3 pages/min)
-	[In-memory index] Duration=83.1 sec (83.027 index + 0.068 search) (477.3 pages/min)
-	[On-disk index] Duration=126.2 sec (126.039 index + 0.152 search) (314.3 pages/min)
-	[Reused index] Duration=0.2 sec (0.000 index + 0.159 search) (0.0 pages/min) 0 pages in 0 files []
-	661 pages in 1 files [/Users/pcadmin/testdata/other/pcng/docs/target/output/pcng-manual.pdf]
