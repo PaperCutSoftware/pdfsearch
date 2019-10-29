@@ -68,4 +68,4 @@ for _integrated assessment model_.
 
 
 ## Talks about this library
-[GopherCon AU 2019][https://docs.google.com/presentation/d/14FDuKAPgWM2z4V1xag0HFEzL3IJfaS4a7Wt0ChxDG6s/edit?usp=sharing]
+[GopherCon AU 2019](https://docs.google.com/presentation/d/14FDuKAPgWM2z4V1xag0HFEzL3IJfaS4a7Wt0ChxDG6s/edit?usp=sharing)
