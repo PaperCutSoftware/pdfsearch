@@ -65,3 +65,7 @@ for _integrated assessment model_.
 ## Libraries
 
 [index_search.go](index_search.go) uses [UniDoc](https://unidoc.io/) for PDF parsing and [bleve](http://github.com/blevesearch/bleve) for search.
+
+
+## Talks about this library
+[GopherCon AU 2019][https://docs.google.com/presentation/d/14FDuKAPgWM2z4V1xag0HFEzL3IJfaS4a7Wt0ChxDG6s/edit?usp=sharing]
