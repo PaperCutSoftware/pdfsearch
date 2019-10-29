@@ -12,11 +12,15 @@ The are some command lines programs that demonstrate the library's functionality
 
 Binary versions (executables) of these four programs are available in
 [releases](https://github.com/PaperCutSoftware/pdfsearch/releases/tag/v0.0.0).
-There are 64-bit binaries for Windows, Mac and Linux.
+There are 64-bit binaries for Windows, Mac and Linux. The binaries do not require a UniDoc license.
 
 ## Installation
 
     git clone https://github.com/PaperCutSoftware/pdfsearch
+
+Replace `uniDocLicenseKey` and `companyName` in [unidoc_glue.go](internal/doclib/unidoc_glue.go)
+with valid [UniDoc](https://unidoc.io/) license fields.
+
     cd pdfsearch/examples
     go build pdf_search_demo.go
     go build pdf_search_verify.go
