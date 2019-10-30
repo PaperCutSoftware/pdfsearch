@@ -107,7 +107,6 @@ func main() {
 			fmt.Fprintf(os.Stderr, "PatternsToPaths failed. args=%#q err=%v\n", flag.Args(), err)
 			os.Exit(1)
 		}
-		// pathList = cmd_utils.CleanCorpus(pathList) //!@#$ pc-only
 		if len(pathList) < 1 {
 			fmt.Fprintf(os.Stderr, "No files matching %q.\n", pathPattern)
 			os.Exit(1)
@@ -150,7 +149,6 @@ func main() {
 //  `maxResults`: Max number of search results to return.
 func runIndexSearchShow(pathList []string, term, persistDir string, serialize, persist, reuse,
 	nameOnly bool, maxResults int, outPath string) error {
-
 	pdfIndex, results, dt, dtIndex, err := runIndexSearch(pathList, term, persistDir, serialize,
 		persist, reuse, maxResults)
 	if err != nil {
@@ -339,7 +337,7 @@ func runIndexSearch(pathList []string, term, persistDir string, serialize, persi
 	} else {
 		results, err = pdfIndex.Search(term, maxResults)
 		if err != nil {
-			panic(err) // !@#$
+			return pdfIndex, results, dt, dtIndex, err
 		}
 	}
 	dt = time.Since(t0)

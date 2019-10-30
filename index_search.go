@@ -19,7 +19,7 @@
  *   2) In-memory with the index stored in a Go struct. Faster but limited to (virtual) memory size.
  *         IndexPdfFiles(persist=false)
  *   3) In-memory with the index serialized to a []byte. Useful for non-Go callers such as web apps.
- *		   IndexPdfMem()  !@#$ Geoff. Why do you need this?
+ *		   IndexPdfMem()  TODO: Ask Geoff why he needs this.
  *
  * There are 2 ways of reading PDF files
  *   1) By filename.
@@ -27,9 +27,7 @@
  *   2) By io.ReadSeeker
  *         IndexPdfReaders()
  * The io.ReadSeeker methods are for callers that don't have access to the PDF files on a file
- * system. !@#$ Geoff. Why do you need this?
- *
-
+ * system.  TODO: Ask Geoff why he needs this.
  */
 
 package pdfsearch

@@ -37,12 +37,12 @@ type docPersist struct {
 	spans             []byteSpan // Indexes into `dataFile`. These is a byteSpan per page.
 	dataPath          string     // Path of `dataFile`.
 	spansPath         string     // Path where `spans` is saved.
-	textDir           string     // !@#$ Debugging
+	textDir           string     // Used for debugging
 	pagePositionsPath string     // !@## What is this?
 }
 
 // docData is the data for indexing a PDF file in memory.
-// How is this used? !@#$
+// TODO: This is now only informational. Remove.
 type docData struct {
 	pageNums  []uint32 // (1-offset) PDF page numbers.
 	pageTexts []string // extracted text for pages.
@@ -222,7 +222,7 @@ func (docPos *DocPositions) Close() error {
 }
 
 // saveJsonDebug serializes `docPos` to file `docPos.pagePositionsPath` as JSON.
-// !@#$ Is this only for debugging?
+// TODO: Remove from production code?
 func (docPos *DocPositions) saveJsonDebug() error {
 	common.Log.Debug("saveJsonDebug: pagePositions=%d pagePositionsPath=%q", len(docPos.pagePositions),
 		docPos.pagePositionsPath)
@@ -251,7 +251,8 @@ func (docPos *DocPositions) saveJsonDebug() error {
 
 // AddDocPage adds a page with (1-offset) page number `pageNum` and contents `ppos` to `docPos`.
 // It returns the page index, that can be used to access this page from ReadPagePositions()
-// !@#$ Remove `text` param.                                             ^^^ !@#$ ^^^
+// TODO: Can we remove `text` param for production code? By the time this function is called we have
+// already indexed the test.
 func (docPos *DocPositions) AddDocPage(pageNum uint32, ppos PagePositions, text string) (
 	uint32, error) {
 	if pageNum == 0 {
@@ -299,7 +300,8 @@ func (docPos *DocPositions) addDocPagePersist(pageNum uint32, ppos PagePositions
 	return pageIdx, err
 }
 
-// !@#$ Needed?
+// pageText returns the text extracted for page with in `docPos` with page index `pageIdx`.
+// TODO: Can we remove this? It seems to be called after the extracted text is indexed.
 func (docPos *DocPositions) pageText(pageIdx uint32) (string, error) {
 	if docPos.isMem() {
 		return docPos.pageTexts[pageIdx], nil
@@ -307,6 +309,9 @@ func (docPos *DocPositions) pageText(pageIdx uint32) (string, error) {
 	return docPos.readPersistedPageText(pageIdx)
 }
 
+// readPersistedPageText returns the text extracted for page with in `docPos` with page index
+// `pageIdx` for a persisted index.
+// TODO: Can we remove this? See pageText().
 func (docPos *DocPositions) readPersistedPageText(pageIdx uint32) (string, error) {
 	filename := docPos.textPath(pageIdx)
 	b, err := ioutil.ReadFile(filename)

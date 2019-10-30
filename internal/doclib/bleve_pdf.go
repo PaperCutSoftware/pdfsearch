@@ -41,7 +41,6 @@ func (blevePdf *BlevePdf) indexDocPagesLocFile(index bleve.Index, inPath string)
 // indexDocPagesLocReader updates `index` and `blevePdf` with the positions of the text in the
 // PDF file accessed by `rs`.
 // `inPath` is the name of the PDF file. It is provided to help with debugging but is not used.
-// !@#$ I don't understand this ^^^
 func (blevePdf *BlevePdf) indexDocPagesLocReader(index bleve.Index, inPath string,
 	rs io.ReadSeeker) (dtPdf, dtBleve time.Duration, err error) {
 	defer blevePdf.check()
@@ -241,7 +240,7 @@ func (blevePdf BlevePdf) check() {
 
 // BlevePdfFromHIPDs creates a BlevePdf from its seralized form `hipds`.
 // It is used to deserialize a BlevePdf.
-// !@#$ Round trip test BlevePdfFromHIPDs + ToHIPDs
+// TODO: Write a round trip test: BlevePdfFromHIPDs + ToHIPDs.
 func BlevePdfFromHIPDs(hipds []serial.HashIndexPathDoc) (BlevePdf, error) {
 	blevePdf := BlevePdf{
 		hashIndex: map[string]uint64{},
@@ -401,8 +400,7 @@ func (blevePdf *BlevePdf) extractDocPagePositionsReader(inPath string, rs io.Rea
 	// while other maps are updated earlier in blevePdf.addFile()
 	// Therefore if there is an error and early exit from State.doExtract(), the blevePdf maps will
 	// be inconsistent.
-	// I am ashamed of this hack. TODO: Fix it!
-	// FIXME: Add a function that updates all the blevePdf maps atomically. !@#$
+	// TODO: Fix this hack. Add a function that updates all the blevePdf maps atomically.
 	docPages, err := blevePdf.doExtract(fd, rs, docPos)
 	if err != nil {
 		blevePdf.remove(fd.Hash)
@@ -411,7 +409,7 @@ func (blevePdf *BlevePdf) extractDocPagePositionsReader(inPath string, rs io.Rea
 	return docPages, err
 }
 
-// document this !@#$
+// TODO: Document
 func (blevePdf *BlevePdf) doExtract(fd fileDesc, rs io.ReadSeeker, docPos *DocPositions) (
 	[]DocPageText, error) {
 	pdfPageProcessor, err := CreatePDFPageProcessorReader(fd.InPath, rs)
@@ -435,7 +433,7 @@ func (blevePdf *BlevePdf) doExtract(fd fileDesc, rs io.ReadSeeker, docPos *DocPo
 		if err != nil {
 			common.Log.Debug("ExtractDocPagePositions: ExtractPageTextMarks failed. "+
 				"%s pageNum=%d err=%v", fd, pageNum, err)
-			return nil // !@#$ Skip errors for now
+			return nil // Skip errors for now. TODO: Make error handling configurable.
 		}
 		if text == "" {
 			common.Log.Debug("doExtract: No text. %s page %d of %d", fd, pageNum, numPages)
@@ -502,7 +500,6 @@ func (blevePdf *BlevePdf) addFile(fd fileDesc) (uint64, string, bool) {
 	}
 	common.Log.Trace("addFile=%#q docIdx=%d dt=%.1f secs", hash, docIdx, dt.Seconds())
 
-	// blevePdf.check() !@#$ Reinstate
 	return docIdx, fd.InPath, false
 }
 
@@ -523,8 +520,8 @@ func (blevePdf *BlevePdf) fileListPath() string {
 	return filepath.Join(blevePdf.root, "file_list.json")
 }
 
-// removeBlevePdf removes the BlevePdf persistent data in the directory tree under
-// `root` from disk. // !@#$ removeFromDisk() ?
+// removeBlevePdf removes the BlevePdf persistent data in the directory tree under `root` from disk.
+// TODO: Improve name. Mayb removeFromDisk() ?
 func (blevePdf *BlevePdf) removeBlevePdf() error {
 	if !utils.Exists(blevePdf.root) {
 		return nil
@@ -580,7 +577,8 @@ func (blevePdf *BlevePdf) docPageText(docIdx uint64, pageIdx uint32) (string, er
 //   inPath: name of PDf file
 //   pageNum: (1-offset) page number of PDF page
 //   ppos: PagePositions for the page text (maps text offsets to PDF page locations)
-// TODO: docPagePositions is inefficient. A DocPositions (a file) is opened and closed to read a page. !@#$
+// TODO: Deprecate. docPagePositions is inefficient. A DocPositions (a file) is opened and closed
+// to read a page.
 func (blevePdf *BlevePdf) docPagePositions(docIdx uint64, pageIdx uint32) (
 	string, uint32, PagePositions, error) {
 

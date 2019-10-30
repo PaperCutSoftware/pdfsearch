@@ -37,7 +37,6 @@ func main() {
 		fmt.Fprintf(os.Stderr, "PatternsToPaths failed. args=%#q err=%v\n", flag.Args(), err)
 		os.Exit(1)
 	}
-	pathList = cmd_utils.CleanCorpus(pathList) //!@#$ pc-only
 	if len(pathList) < 1 {
 		fmt.Fprintf(os.Stderr, "No files matching %q.\n", flag.Args())
 		os.Exit(1)
