@@ -171,7 +171,7 @@ func (l *ExtractList) SaveOutputPdf(outPath string) error {
 		outPages++
 
 		h := mediaBox.Ury
-		shift := 2.0 // !@#$ Hack to line up highlight box
+		shift := 2.0 //  Hack to line up highlight box
 		for _, r := range pageContent.rects {
 			r.Llx -= BorderWidth
 			r.Lly -= BorderWidth

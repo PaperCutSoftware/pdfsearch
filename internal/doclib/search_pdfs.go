@@ -40,7 +40,7 @@ type PdfPageMatch struct {
 	LineNums      []int    // 1-offset line number of the matched text within the extracted page text.
 	Lines         []string // The contents of the line containing the matched text.
 	PagePositions          // This is used to find the bounding box of the match text on the PDF page.
-	bleveMatch             // Internal information !@#$
+	bleveMatch             // Internal information on the match returned from the bleve query.
 }
 
 // bleveMatch is the match information returned by a bleve query.
@@ -48,7 +48,7 @@ type bleveMatch struct {
 	docIdx   uint64  // Document index.
 	pageIdx  uint32  // Page index.
 	Score    float64 // bleve score.
-	Fragment string  // bleve's marked up string Needed? !@#$
+	Fragment string  // bleve's marked up string. Useful for debugging. TODO. Remove from production code?
 	Spans    []Span
 }
 
@@ -59,13 +59,13 @@ type Span struct {
 	Score float64 // Score for this match
 }
 
-// Best return a copy of `p` trimmed to the results with the highest score.
-func (p PdfMatchSet) Best() PdfMatchSet {
+// Best return a copy of `s` trimmed to the results with the highest score.
+func (s PdfMatchSet) Best() PdfMatchSet {
 	best := PdfMatchSet{
-		SearchDuration: p.SearchDuration,
+		SearchDuration: s.SearchDuration,
 	}
 	bestScore := 0.0
-	for _, m := range p.Matches {
+	for _, m := range s.Matches {
 		for _, s := range m.Spans {
 			if s.Score >= bestScore {
 				bestScore = s.Score
@@ -74,16 +74,16 @@ func (p PdfMatchSet) Best() PdfMatchSet {
 	}
 	numMatches := 0
 	numBest := 0
-	for _, m := range p.Matches {
+	for _, m := range s.Matches {
 		var lineNums []int
 		var lines []string
 		var spans []Span
-		for i, s := range m.Spans {
+		for i, a := range m.Spans {
 			numMatches++
-			if s.Score >= bestScore {
+			if a.Score >= bestScore {
 				lineNums = append(lineNums, m.LineNums[i])
 				lines = append(lines, m.Lines[i])
-				spans = append(spans, s)
+				spans = append(spans, a)
 			}
 		}
 		if len(spans) > 0 {
@@ -108,12 +108,12 @@ var ErrNoMatch = errors.New("no match for hit")
 var ErrNoPositions = errors.New("no match for hit")
 
 // Equals returns true if `p` contains the same results as `q`.
-func (p PdfMatchSet) Equals(q PdfMatchSet) bool {
-	if len(p.Matches) != len(q.Matches) {
-		common.Log.Error("PdfMatchSet.Equals.Matches: %d %d", len(p.Matches), len(q.Matches))
+func (s PdfMatchSet) Equals(q PdfMatchSet) bool {
+	if len(s.Matches) != len(q.Matches) {
+		common.Log.Error("PdfMatchSet.Equals.Matches: %d %d", len(s.Matches), len(q.Matches))
 		return false
 	}
-	for i, m := range p.Matches {
+	for i, m := range s.Matches {
 		n := q.Matches[i]
 		if !m.equals(n) {
 			common.Log.Error("PdfMatchSet.Equals.Matches[%d]:\np=%s\nq=%s", i, m, n)
@@ -185,8 +185,8 @@ func (blevePdf *BlevePdf) SearchBleveIndex(index bleve.Index, term0 string, maxR
 		return p, nil
 	}
 
-	// !@#$ precompute analyzer
-	// !@#$ are tokens needed
+	// TODO precompute analyzer?
+	// TODO: Are tokens needed? Is there a better way of computing spans/.
 	cache := registry.NewCache()
 	analyzer, err := cache.AnalyzerNamed(en.AnalyzerName)
 	if err != nil {
@@ -379,8 +379,6 @@ func (blevePdf *BlevePdf) hitToPdfMatch(tokens analysis.TokenStream, hit *search
 		}
 		lineNums = append(lineNums, lineNum)
 		lines = append(lines, line)
-		// !@#$ Check for bad BBoxes
-		ppos.BBox(span.Start, span.End)
 	}
 
 	return PdfPageMatch{
@@ -528,7 +526,6 @@ func hitToBleveMatch(tokens analysis.TokenStream, hit *search.DocumentMatch) (bl
 	var frags strings.Builder
 	var phrases []Phrase
 	common.Log.Debug("----------xxx------------ %d Fragments", len(hit.Fragments))
-	// !@#$ How many fragments are there?
 	for k, fragments := range hit.Fragments {
 		for _, fragment := range fragments {
 			frags.WriteString(fragment)

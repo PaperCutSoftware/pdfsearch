@@ -16,9 +16,8 @@ import (
 // PagePositions is used to link per-document data in a bleve index to the PDF file the data was
 // extracted from.
 // There is one PagePositions per PDF page.
-// PagePositions stores the locations of text fragments on a page. The search index includes a
+// PagePositions stores the locations of text fragments on a page. PdfPageMatch includes a
 // binary copy of PagePositions, so our goal is to make PagePositions compact.
-// !@#$ Which search index?
 type PagePositions struct {
 	offsetBBoxes []serial.OffsetBBox
 }
