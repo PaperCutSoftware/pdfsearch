@@ -63,7 +63,7 @@ func MakeSerialBlevePdf(b *flatbuffers.Builder, spi SerialBlevePdf) []byte {
 }
 
 // ReadSerialBlevePdf converts byte array `b` into a SerialBlevePdf.
-// Write round trip tests. !@#$
+// TODO: Write round trip tests.
 func ReadSerialBlevePdf(buf []byte) (SerialBlevePdf, error) {
 	// Initialize a SerialBlevePdf reader from `buf`.
 	spi := pdf_index.GetRootAsPdfIndex(buf, 0)
@@ -130,7 +130,7 @@ func addHashIndexPathDoc(b *flatbuffers.Builder, hipd HashIndexPathDoc) flatbuff
 	return pdf_index.HashIndexPathDocEnd(b)
 }
 
-// getHashIndexPathDoc reads a HashIndexPathDoc. !@#$
+// getHashIndexPathDoc reads a HashIndexPathDoc.
 func getHashIndexPathDoc(loc *pdf_index.HashIndexPathDoc) (HashIndexPathDoc, error) {
 	// Copy the HashIndexPathDoc's fields (since these are numbers).
 	var pos pdf_index.DocPositions
@@ -276,13 +276,6 @@ func addDocPositions(b *flatbuffers.Builder, doc DocPositions) flatbuffers.UOffs
 	pdf_index.DocPositionsAddPageDpl(b, dplOfs)
 	return pdf_index.DocPositionsEnd(b)
 }
-
-// ReadDocPositions is not used !@#$
-// func ReadDocPositions(buf []byte) (DocPositions, error) {
-// 	// Initialize a SerialBlevePdf reader from `buf`.
-// 	sdoc := pdf_index.GetRootAsDocPositions(buf, 0)
-// 	return getDocPositions(sdoc)
-// }
 
 func getDocPositions(sdoc *pdf_index.DocPositions) (DocPositions, error) {
 	// Vectors, such as `PageNums`, have a method suffixed with 'Length' that can be used
