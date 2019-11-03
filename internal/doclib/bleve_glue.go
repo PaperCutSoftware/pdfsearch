@@ -3,20 +3,13 @@
 package doclib
 
 import (
-	"bytes"
 	"path/filepath"
-
 	"github.com/blevesearch/bleve"
 	"github.com/blevesearch/bleve/analysis/lang/en"
 	"github.com/blevesearch/bleve/index/scorch"
-	btreap "github.com/blevesearch/bleve/index/store/gtreap"
 	"github.com/blevesearch/bleve/mapping"
 	"github.com/papercutsoftware/pdfsearch/internal/utils"
 	"github.com/unidoc/unipdf/v3/common"
-
-	// Hack to make blevex work with our serialized in-memory bleve indexes.
-	// TODO: Ask bleve to update "github.com/blevesearch/blevex with our changes
-	"github.com/peterwilliams97/blevex/preload"
 )
 
 // createBleveDiskIndex creates a new persistent bleve index at `indexPath`.
@@ -78,31 +71,4 @@ func removeBleveDiskIndex(indexPath string) {
 	if err := utils.RemoveDirectory(indexPath); err != nil {
 		common.Log.Error("RemoveDirectory(%q) failed. err=%v", indexPath, err)
 	}
-}
-
-// ExportBleveMem serializes bleve index `index` to a byte slice.
-func ExportBleveMem(index bleve.Index) ([]byte, error) {
-	var b bytes.Buffer
-	w := &b
-	i, _, err := index.Advanced()
-	if err != nil {
-		return nil, err
-	}
-	if err = preload.ExportBleve(i, w); err != nil {
-		return nil, err
-	}
-	return b.Bytes(), nil
-}
-
-// ImportBleveMem deserializes `data` to a bleve.Index.
-func ImportBleveMem(data []byte) (bleve.Index, error) {
-	return bleve.NewUsing(
-		"",
-		bleve.NewIndexMapping(),
-		bleve.Config.DefaultIndexType,
-		preload.Name,
-		map[string]interface{}{
-			"kvStoreName_actual": btreap.Name,
-			"preloadmem":         data,
-		})
 }

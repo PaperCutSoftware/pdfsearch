@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/blevesearch/bleve"
-	"github.com/papercutsoftware/pdfsearch/internal/serial"
 	"github.com/papercutsoftware/pdfsearch/internal/utils"
 	"github.com/unidoc/unipdf/v3/common"
 	"github.com/unidoc/unipdf/v3/model"
@@ -133,7 +132,7 @@ type BlevePdf struct {
 	hashIndex  map[string]uint64        // {file hash: index into fdList}
 	hashPath   map[string]string        // {file hash: file path}
 	hashDoc    map[string]*DocPositions // {file hash: DocPositions}.
-	indexHash  map[uint64]string        // Reverse map of hashIndex.
+	indexHash  map[uint64]string        // Reverse map of hashIndex. !@#$ Needed for persistent case?
 	updateTime time.Time                // Time of last flush()
 }
 
@@ -169,11 +168,6 @@ func (blevePdf BlevePdf) String() string {
 // Len returns the number of documents in `blevePdf`.
 func (blevePdf BlevePdf) Len() int {
 	return len(blevePdf.hashIndex)
-}
-
-// isMem returns true if `blevePdf` is stored in memory or false if it is stored on disk.
-func (blevePdf BlevePdf) isMem() bool {
-	return blevePdf.root == ""
 }
 
 // remove deletes all the BlevePdf map entries with key `hash` as well as the corresponding
@@ -238,112 +232,15 @@ func (blevePdf BlevePdf) check() {
 	}
 }
 
-// BlevePdfFromHIPDs creates a BlevePdf from its seralized form `hipds`.
-// It is used to deserialize a BlevePdf.
-// TODO: Write a round trip test: BlevePdfFromHIPDs + ToHIPDs.
-func BlevePdfFromHIPDs(hipds []serial.HashIndexPathDoc) (BlevePdf, error) {
-	blevePdf := BlevePdf{
-		hashIndex: map[string]uint64{},
-		indexHash: map[uint64]string{},
-		hashPath:  map[string]string{},
-		hashDoc:   map[string]*DocPositions{},
-	}
-	for _, h := range hipds {
-		hash := h.Hash
-		idx := h.Index
-		path := h.Path
-		sdoc := h.Doc
-
-		common.Log.Debug("BlevePdfFromHIPDs: sdoc.PageNums=%d sdoc.PagePositions=%d",
-			len(sdoc.PageNums), len(sdoc.PagePositions))
-		// sdoc.PagePositions is a slice with entries corresponding to page numbers in sdoc.PageNums
-		pagePositions := map[uint32]PagePositions{}
-		for i, pageNum := range sdoc.PageNums {
-			pagePositions[pageNum] = PagePositions{sdoc.PagePositions[i]}
-		}
-		docPos := DocPositions{
-			inPath:        sdoc.Path,   // Path of input PDF file.
-			docIdx:        sdoc.DocIdx, // Index into blevePdf.fdList.
-			pagePositions: pagePositions,
-			docData: &docData{
-				pageNums:  sdoc.PageNums,
-				pageTexts: sdoc.PageTexts,
-			},
-		}
-
-		blevePdf.hashPath[hash] = path
-		blevePdf.hashDoc[hash] = &docPos
-		blevePdf.hashIndex[hash] = idx
-		blevePdf.indexHash[idx] = hash
-
-		desc := fileDesc{
-			InPath: path,
-			Hash:   hash,
-		}
-		blevePdf.fdList = append(blevePdf.fdList, desc)
-	}
-	blevePdf.check()
-	return blevePdf, nil
-}
-
-// ToHIPDs converts `blevePdf` to a serial.HashIndexPathDoc.
-// blevePdf.Check() is run before saving to avoid empty serializations.
-func (blevePdf BlevePdf) ToHIPDs() ([]serial.HashIndexPathDoc, error) {
-	var hipds []serial.HashIndexPathDoc
-	for hash, idx := range blevePdf.hashIndex {
-		path, ok := blevePdf.hashPath[hash]
-		if !ok {
-			return nil, fmt.Errorf("hash=%#q not in hashPath", hash)
-		}
-		doc, ok := blevePdf.hashDoc[hash]
-		if !ok {
-			var keys []string
-			for h := range blevePdf.hashDoc {
-				keys = append(keys, h)
-			}
-			sort.Strings(keys)
-			var keyt []string
-			for h := range blevePdf.hashIndex {
-				keyt = append(keyt, h)
-			}
-			sort.Strings(keyt)
-			return nil, fmt.Errorf("hash=%#q not in hashDoc.\nhashDoc  :%d %+v\nhashIndex:%d %+v",
-				hash, len(keys), keys, len(keyt), keyt)
-		}
-		// sdoc.PagePositions is a slice with entries corresponding to page numbers in sdoc.PageNums
-		common.Log.Trace("doc.pagePositions=%d", len(doc.pagePositions))
-		pagePositions := make([][]serial.OffsetBBox, len(doc.pagePositions))
-		for i, pageNum := range doc.pageNums {
-			pagePositions[i] = doc.pagePositions[pageNum].offsetBBoxes
-		}
-		sdoc := serial.DocPositions{
-			Path:          doc.inPath,
-			DocIdx:        doc.docIdx,
-			PageNums:      doc.pageNums,
-			PageTexts:     doc.pageTexts,
-			PagePositions: pagePositions,
-		}
-		common.Log.Debug("ToHIPDs: sdoc=%d %+v", len(sdoc.PageNums), sdoc.PageNums)
-		h := serial.HashIndexPathDoc{
-			Hash:  hash,
-			Index: idx,
-			Path:  path,
-			Doc:   sdoc,
-		}
-		hipds = append(hipds, h)
-	}
-	return hipds, nil
-}
-
 // pdfXrefDir returns the full path of PDF content <-> bleve index mappings on disk.
 func (blevePdf BlevePdf) pdfXrefDir() string {
 	return filepath.Join(blevePdf.root, "pdf.xref")
 }
 
-// OpenBlevePdf loads indexes from an existing locations directory `root` or creates one if it
+// openBlevePdf loads indexes from an existing locations directory `root` or creates one if it
 // doesn't exist.
 // When opening for writing, do the following to ensure final index is written to disk:
-//    blevePdf, err := doclib.OpenBlevePdf(persistDir, forceCreate)
+//    blevePdf, err := doclib.openBlevePdf(persistDir, forceCreate)
 //    defer blevePdf.flush()
 func openBlevePdf(root string, forceCreate bool) (*BlevePdf, error) {
 	blevePdf := BlevePdf{
@@ -352,25 +249,22 @@ func openBlevePdf(root string, forceCreate bool) (*BlevePdf, error) {
 		indexHash: map[uint64]string{},
 		hashPath:  map[string]string{},
 	}
-	if blevePdf.isMem() {
-		blevePdf.hashDoc = map[string]*DocPositions{}
-	} else {
-		if forceCreate {
-			if err := blevePdf.removeBlevePdf(); err != nil {
-				return nil, err
-			}
-		}
-		filename := blevePdf.fileListPath()
-		fdList, err := loadFileDescList(filename)
-		if err != nil {
+
+	if forceCreate {
+		if err := blevePdf.removeBlevePdf(); err != nil {
 			return nil, err
 		}
-		blevePdf.fdList = fdList
-		for i, fd := range fdList {
-			blevePdf.hashIndex[fd.Hash] = uint64(i)
-			blevePdf.indexHash[uint64(i)] = fd.Hash
-			blevePdf.hashPath[fd.Hash] = fd.InPath
-		}
+	}
+	filename := blevePdf.fileListPath()
+	fdList, err := loadFileDescList(filename)
+	if err != nil {
+		return nil, err
+	}
+	blevePdf.fdList = fdList
+	for i, fd := range fdList {
+		blevePdf.hashIndex[fd.Hash] = uint64(i)
+		blevePdf.indexHash[uint64(i)] = fd.Hash
+		blevePdf.hashPath[fd.Hash] = fd.InPath
 	}
 
 	blevePdf.updateTime = time.Now()
@@ -469,11 +363,6 @@ func (blevePdf *BlevePdf) doExtract(fd fileDesc, rs io.ReadSeeker, docPos *DocPo
 	if err != nil {
 		return nil, err
 	}
-
-	if blevePdf.isMem() {
-		common.Log.Debug("ExtractDocPagePositions: pageNums=%v", docPos.docData.pageNums)
-		blevePdf.hashDoc[fd.Hash] = docPos
-	}
 	blevePdf.check()
 	return docPages, err
 }
@@ -506,9 +395,6 @@ func (blevePdf *BlevePdf) addFile(fd fileDesc) (uint64, string, bool) {
 
 // flush saves `blevePdf` to disk
 func (blevePdf *BlevePdf) flush() error {
-	if blevePdf.isMem() {
-		return nil
-	}
 	dt := time.Since(blevePdf.updateTime)
 	docIdx := uint64(len(blevePdf.fdList) - 1)
 	common.Log.Debug("*** flush %3d files (%4.1f sec) %s",
@@ -609,11 +495,6 @@ func (blevePdf *BlevePdf) createDocPositions(fd fileDesc) (*DocPositions, error)
 	if err != nil {
 		return nil, err
 	}
-
-	if blevePdf.isMem() {
-		return docPos, nil
-	}
-
 	// Persistent case.
 	if err = blevePdf.createIfNecessary(); err != nil {
 		return nil, err
@@ -627,17 +508,8 @@ func (blevePdf *BlevePdf) createDocPositions(fd fileDesc) (*DocPositions, error)
 }
 
 // openDocPosition opens a DocPositions for reading.
-// In a persistent `blevePdf`, necessary files are opened in docPos.openDoc().
+// Necessary files are opened in docPos.openDoc().
 func (blevePdf *BlevePdf) openDocPosition(docIdx uint64) (*DocPositions, error) {
-	if blevePdf.isMem() {
-		hash := blevePdf.indexHash[docIdx]
-		docPos := blevePdf.hashDoc[hash]
-		common.Log.Debug("openDocPosition(%d)->%s", docIdx, docPos)
-		docPos.check()
-		return docPos, nil
-	}
-
-	// Persistent handling.
 	docPos, err := blevePdf.baseFields(docIdx)
 	if err != nil {
 		return nil, err
@@ -662,23 +534,16 @@ func (blevePdf *BlevePdf) baseFields(docIdx uint64) (*DocPositions, error) {
 		pagePositions: map[uint32]PagePositions{},
 	}
 
-	if blevePdf.isMem() {
-		mem := docData{}
-		docPos.docData = &mem
-	} else {
-		locPath := blevePdf.docPath(hash)
-		persist := docPersist{
-			dataPath:          locPath + ".dat",
-			spansPath:         locPath + ".idx.json",
-			textDir:           locPath + ".pages",
-			pagePositionsPath: locPath + ".ppos.json",
-		}
-		docPos.docPersist = &persist
+	locPath := blevePdf.docPath(hash)
+	// !@#$ No need for this
+	persist := docPersist{
+		dataPath:          locPath + ".dat",
+		spansPath:         locPath + ".idx.json",
+		textDir:           locPath + ".pages",
+		pagePositionsPath: locPath + ".ppos.json",
 	}
+	docPos.docPersist = &persist
 
 	common.Log.Debug("baseFields: docIdx=%d docPos=%+v", docIdx, docPos)
-	if blevePdf.isMem() != docPos.isMem() {
-		return nil, fmt.Errorf("blevePdf.isMem()=%t docPos.isMem()=%t", blevePdf.isMem(), docPos.isMem())
-	}
 	return &docPos, nil
 }

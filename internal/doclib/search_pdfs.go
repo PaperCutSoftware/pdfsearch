@@ -569,6 +569,7 @@ func decodeID(id string) (uint64, uint32, error) {
 
 // lineNumber returns the 1-offset line number and the text of the line of the contains the 0-offset
 //  `offset` in `text`.
+// !@#$ precalculate this and stop storing text!
 func lineNumber(text string, offset uint32) (int, string, bool) {
 	endings := lineEndings(text)
 	n := len(endings)

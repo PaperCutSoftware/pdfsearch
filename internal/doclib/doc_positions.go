@@ -27,7 +27,6 @@ type DocPositions struct {
 	docIdx        uint64                   // Index into blevePdf.fileList.
 	pagePositions map[uint32]PagePositions // {pageNum: locations of text on page}
 	*docPersist                            // Optional extra fields for on-disk indexes.
-	*docData                               // Optional extra fields for in-memory indexes.
 }
 
 // docPersist tracks the info for indexing a PDF file on disk.
@@ -40,13 +39,6 @@ type docPersist struct {
 	pagePositionsPath string     // !@## What is this?
 }
 
-// docData is the data for indexing a PDF file in memory.
-// TODO: This is now only informational. Remove. !@#$
-type docData struct {
-	pageNums  []uint32 // (1-offset) PDF page numbers.
-	pageTexts []string // extracted text for pages.
-}
-
 // byteSpan is the location of the bytes of a PagePositions in a data file.
 // The span is over [Offset, Offset+Size).
 // There is one byteSpan (corresponding to a PagePositions) per page.
@@ -57,33 +49,11 @@ type byteSpan struct {
 	PageNum uint32 // PDF page number.
 }
 
-// Equals returns true if `d` contains the same information as `e`.
+// Equals returns true if `docPos` contains the same information as `e`.
 func (docPos *DocPositions) Equals(e *DocPositions) bool {
-	if len(docPos.pageNums) != len(e.pageNums) {
-		common.Log.Error("DocPositions.Equal.pageNums: %d %d", len(docPos.pageNums), len(e.pageNums))
-		return false
-	}
-	if len(docPos.pageTexts) != len(e.pageTexts) {
-		common.Log.Error("DocPositions.Equal.pageTexts: %d %d", len(docPos.pageTexts), len(e.pageTexts))
-		return false
-	}
 	if len(docPos.pagePositions) != len(e.pagePositions) {
 		common.Log.Error("DocPositions.Equal.pagePositions: %d %d", len(docPos.pagePositions), len(e.pagePositions))
 		return false
-	}
-	for i, dp := range docPos.pageNums {
-		ep := e.pageNums[i]
-		if dp != ep {
-			common.Log.Error("DocPositions.Equal.pageNums[%d]: %d %d", i, dp, ep)
-			return false
-		}
-	}
-	for i, dt := range docPos.pageTexts {
-		et := e.pageTexts[i]
-		if dt != et {
-			common.Log.Error("DocPositions.Equal.pageTexts[%d]: %d %d", i, dt, et)
-			return false
-		}
 	}
 	for i, dp := range docPos.pagePositions {
 		ep, ok := e.pagePositions[i]
@@ -98,41 +68,20 @@ func (docPos *DocPositions) Equals(e *DocPositions) bool {
 // String returns a human readable string describing `d`.
 func (docPos DocPositions) String() string {
 	var sb strings.Builder
-	fmt.Fprintf(&sb, "DocPositions{%q docIdx=%d mem=%t",
-		filepath.Base(docPos.inPath), docPos.docIdx, docPos.isMem())
-	if docPos.docPersist != nil {
-		sb.WriteString(docPos.docPersist.String())
-	}
-	if docPos.docData != nil {
-		sb.WriteString(docPos.docData.String())
-	}
+	fmt.Fprintf(&sb, "DocPositions{%q docIdx=%d",
+		filepath.Base(docPos.inPath), docPos.docIdx)
+	sb.WriteString(docPos.docPersist.String())
 	sb.WriteString("}")
 	return sb.String()
 }
 
-// Len returns the number of pages in `d`.
+// Len returns the number of pages in `docPos`.
 func (docPos DocPositions) Len() int {
-	return len(docPos.pageNums)
+	return len(docPos.pageKeys()) // !@#$
 }
 
-// isMem returns true if `d` is an in-memory database.
-// Caller must check that (docPos.docPersist != nil) != (docPos.docData != nil)
-func (docPos DocPositions) isMem() bool {
-	docPos.check()
-	return docPos.docData != nil
-}
-
-// check panics is `d` is an inconsistent state, which should never happen.
+// check panics is `docPos` is an inconsistent state, which should never happen.
 func (docPos DocPositions) check() {
-	persist := docPos.docPersist != nil
-	mem := docPos.docData != nil
-	if persist == mem {
-		panic(fmt.Errorf("docPos=%s should not happen\n%#v", docPos, docPos))
-	}
-	if mem {
-		return
-	}
-
 	keys := docPos.pageKeys()
 	for _, pageNum := range keys {
 		if pageNum == 0 {
@@ -153,24 +102,8 @@ func (d docPersist) String() string {
 	return fmt.Sprintf("docPersist{%s}", strings.Join(parts, "\n"))
 }
 
-// String returns a human readable string describing docData `d`.
-func (d docData) String() string {
-	np := len(d.pageNums)
-	nt := len(d.pageTexts)
-	bad := ""
-	if np != nt {
-		bad = " [BAD]"
-	}
-	return fmt.Sprintf("docData{pageNums=%d pageTexts=%d%s}", np, nt, bad)
-}
-
-// openDoc opens `docPos` for reading. If `docPos` is persistent, the necessary files are opened.
+// openDoc opens `docPos`. The necessary files are opened.
 func (docPos *DocPositions) openDoc() error {
-	if docPos.isMem() {
-		return nil
-	}
-
-	// Persistent case.
 	f, err := os.Open(docPos.dataPath)
 	if err != nil {
 		return err
@@ -192,11 +125,6 @@ func (docPos *DocPositions) openDoc() error {
 
 // Save saves `docPos` to disk if it peristent.
 func (docPos *DocPositions) Save() error {
-	if docPos.isMem() {
-		return nil
-	}
-
-	// Persistent case.
 	b, err := json.MarshalIndent(docPos.spans, "", "\t")
 	if err != nil {
 		return err
@@ -204,13 +132,8 @@ func (docPos *DocPositions) Save() error {
 	return ioutil.WriteFile(docPos.spansPath, b, 0666)
 }
 
-// Close closes `docPos`'s open files if it peristent.
+// Close closes `docPos`'s open files if it is persistent.
 func (docPos *DocPositions) Close() error {
-	if docPos.isMem() {
-		return nil
-	}
-
-	// Persistent case.
 	if err := docPos.saveJsonDebug(); err != nil {
 		return err
 	}
@@ -258,12 +181,6 @@ func (docPos *DocPositions) AddDocPage(pageNum uint32, ppos PagePositions, text 
 		return 0, errors.New("pageNum=0")
 	}
 	docPos.pagePositions[pageNum] = ppos
-
-	if docPos.isMem() {
-		docPos.docData.pageTexts = append(docPos.docData.pageTexts, text)
-		docPos.docData.pageNums = append(docPos.docData.pageNums, pageNum)
-		return uint32(len(docPos.docData.pageNums)) - 1, nil
-	}
 	return docPos.addDocPagePersist(pageNum, ppos, text)
 }
 
@@ -304,9 +221,6 @@ func (docPos *DocPositions) addDocPagePersist(pageNum uint32, ppos PagePositions
 // pageText returns the text extracted for page with in `docPos` with page index `pageIdx`.
 // TODO: Can we remove this? It seems to be called after the extracted text is indexed.
 func (docPos *DocPositions) pageText(pageIdx uint32) (string, error) {
-	if docPos.isMem() {
-		return docPos.pageTexts[pageIdx], nil
-	}
 	return docPos.readPersistedPageText(pageIdx)
 }
 
@@ -325,32 +239,6 @@ func (docPos *DocPositions) readPersistedPageText(pageIdx uint32) (string, error
 // pageNumPositions returns the page number (1-offset) and PagePositions of the text on the `pageIdx`
 // (0-offset) in `docPos`.
 func (docPos *DocPositions) pageNumPositions(pageIdx uint32) (uint32, PagePositions, error) {
-	if docPos.isMem() {
-		if pageIdx >= uint32(len(docPos.pageNums)) {
-			return 0, PagePositions{}, fmt.Errorf("bad pageIdx=%d docPos=%s", pageIdx, docPos)
-		}
-		common.Log.Debug("ReadPagePositions: pageIdx=%d pageNums=%d %+v", pageIdx, len(docPos.pageNums),
-			docPos.pageNums)
-		pageNum := docPos.pageNums[pageIdx]
-		if pageNum == 0 {
-			return 0, PagePositions{}, fmt.Errorf("No pageNum. docPos=%s", docPos)
-		}
-		ppos, ok := docPos.pagePositions[pageNum]
-		if !ok {
-			common.Log.Error("ReadPagePositions: pageIdx=%d pageNum=%d docPos=%s",
-				pageIdx, pageNum, docPos)
-			common.Log.Error("ReadPagePositions: pageNums=%d %+v", len(docPos.pageNums), docPos.pageNums)
-			keys := docPos.pageKeys()
-			common.Log.Error("ReadPagePositions: keys=%d %+v", len(docPos.pagePositions), keys)
-			return 0, PagePositions{}, errors.New("pageNum not in pagePositions")
-		}
-		if len(ppos.offsetBBoxes) == 0 {
-			common.Log.Error("ReadPagePositions: pageIdx=%d pageNum=%d docPos=%s",
-				pageIdx, pageNum, docPos)
-			return 0, PagePositions{}, errors.New("no locations")
-		}
-		return pageNum, ppos, nil
-	}
 	return docPos.readPersistedPagePositions(pageIdx)
 }
 
@@ -396,7 +284,7 @@ func (docPos *DocPositions) textPath(pageIdx uint32) string {
 	return filepath.Join(docPos.textDir, fmt.Sprintf("%03d.txt", pageIdx))
 }
 
-// DocPageText contains doc:page indexes, the PDF page number and the text extracted from a PDF page.
+// DocPageText contains doc:page indexes, the PDF page number and the text extracted from the PDF page.
 type DocPageText struct {
 	DocIdx  uint64 // Doc index (0-offset) into BlevePdf.fileList .
 	PageIdx uint32 // Page index (0-offset) into DocPositions.index .

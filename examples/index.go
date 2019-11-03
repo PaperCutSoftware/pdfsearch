@@ -14,7 +14,7 @@ import (
 )
 
 const usage = `Usage: go run index.go [OPTIONS]  pcng-manual*.pdf
-  Adds PDF files that match "pcng-manual*.pdf" to the index
+  Adds PDF files that match "pcng-manual*.pdf" to the index.
 `
 
 func main() {
@@ -27,9 +27,6 @@ func main() {
 		flag.Usage()
 		os.Exit(1)
 	}
-
-	// We always want to see all errors in our testing.
-	pdfsearch.ExposeErrors()
 
 	// Read the files to index into `pathList`.
 	pathList, err := cmd_utils.PatternsToPaths(flag.Args(), true)
@@ -51,9 +48,8 @@ func main() {
 
 // runIndexShow creates a pdfsearch.PdfIndex for the PDF files in `pathList`, searches for
 // `term` in this index, and shows the results.
-//  `persistDir`: The directory the pdfsearch.PdfIndex is saved in if `persist` is true.
+//  `persistDir`: The directory the pdfsearch.PdfIndex is saved.
 func runIndexShow(pathList []string, persistDir string) error {
-
 	pdfIndex, dt, err := runIndex(pathList, persistDir)
 	if err != nil {
 		return err
@@ -63,14 +59,14 @@ func runIndexShow(pathList []string, persistDir string) error {
 
 // runIndex creates a pdfsearch.PdfIndex for the PDF files in `pathList` and returns the
 // pdfsearch.PdfIndex, the search results and the indexing duration.
-// Rhe pdfsearch.PdfIndex is saved in directory `persistDir`.
+// The pdfsearch.PdfIndex is saved in directory `persistDir`.
 // This is the main function. It shows you how to create or open an index.
 func runIndex(pathList []string, persistDir string) (pdfIndex pdfsearch.PdfIndex, dt time.Duration,
 	err error) {
 	fmt.Fprintf(os.Stderr, "Indexing %d files. Index stored in %q.\n", len(pathList), persistDir)
 
 	t0 := time.Now()
-	pdfIndex, err = pdfsearch.IndexPdfFiles(pathList, true, persistDir, report)
+	pdfIndex, err = pdfsearch.IndexPdfFiles(pathList, persistDir, report)
 	if err != nil {
 		return pdfIndex, dt, err
 	}

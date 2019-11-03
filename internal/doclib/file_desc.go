@@ -16,7 +16,7 @@ import (
 )
 
 // loadFileDescList deserializes a file descriptor list `fdList` from json file `jsonPath` if
-// `jsonPath`, or creates an empty list if it doesn't.
+// `jsonPath` exists, or creates an empty list if it doesn't.
 func loadFileDescList(jsonPath string) ([]fileDesc, error) {
 	b, err := ioutil.ReadFile(jsonPath)
 	if err != nil {

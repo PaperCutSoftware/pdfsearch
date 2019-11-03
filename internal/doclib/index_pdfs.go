@@ -45,8 +45,7 @@ func IndexPdfFilesUsingReaders(pathList []string, persistDir string, forceCreate
 // IndexPdfFilesOrReaders returns a BlevePdf and a bleve.Index over
 //   the PDF contents referenced by the io.ReaderSeeker's in `rsList` if `rsList` is not empty, or
 //   the PDF filenames in `pathList` if `rsList` is not empty.
-// If `persist` is false, the index is stored in memory.
-// If `persist` is true, the index is stored on disk in `persistDir`.
+// The index is stored on disk in `persistDir`.
 // `report` is a supplied function that is called to report progress.
 // Returns: (blevePdf, index, numFiles, totalPages, dtPdf, dtBleve, err) where
 //   blevePdf: mapping of a bleve index to PDF pages and text coordinates
@@ -59,6 +58,7 @@ func IndexPdfFilesUsingReaders(pathList []string, persistDir string, forceCreate
 //
 // NOTE: If you have access to your PDF files then use `pathList` and set `rsList` to nil as a long
 //     list of file handles may exhaust system resources.
+// !@#$ Parallelize this
 func IndexPdfFilesOrReaders(pathList []string, rsList []io.ReadSeeker, persistDir string,
 	forceCreate bool, report func(string)) (*BlevePdf, bleve.Index,
 	int, int, time.Duration, time.Duration, error) {
@@ -67,6 +67,7 @@ func IndexPdfFilesOrReaders(pathList []string, rsList []io.ReadSeeker, persistDi
 		len(pathList), useReaders, forceCreate)
 	var dtPdf, dtBleve, dtP, dtB time.Duration
 
+	// !@#$
 	blevePdf, err := openBlevePdf(persistDir, forceCreate)
 	if err != nil {
 		return nil, nil, 0, 0, dtPdf, dtBleve, fmt.Errorf("Could not create positions store %q. "+
