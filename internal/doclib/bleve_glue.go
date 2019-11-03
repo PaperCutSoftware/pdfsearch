@@ -22,7 +22,7 @@ import (
 // If `forceCreate` is true then an existing index will be deleted.
 func createBleveDiskIndex(indexPath string, forceCreate bool) (bleve.Index, error) {
 	mapping := buildIndexMapping()
-	index, err := bleve.New(indexPath, mapping)
+	index, err := bleve.NewUsing(indexPath, mapping, "scorch", "scorch", nil)
 	if err == bleve.ErrorIndexPathExists {
 		common.Log.Error("Bleve index %q exists.", indexPath)
 		if forceCreate {
