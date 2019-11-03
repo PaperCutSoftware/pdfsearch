@@ -19,11 +19,10 @@ import (
 	"github.com/unidoc/unipdf/v3/common"
 )
 
-// DocPositions is used to the link per-document data in a bleve index to the PDF file that the
-// data was extracted from.
-// There is one DocPositions per PDF file.
+// DocPositions is used to the link per-document data in a bleve index to the PDF the data was
+// extracted from.
+// There is one DocPositions per PDF.
 type DocPositions struct {
-	blevePdf      *BlevePdf                // State of whole store.
 	inPath        string                   // Path of input PDF file.
 	docIdx        uint64                   // Index into blevePdf.fileList.
 	pagePositions map[uint32]PagePositions // {pageNum: locations of text on page}
@@ -34,7 +33,7 @@ type DocPositions struct {
 // docPersist tracks the info for indexing a PDF file on disk.
 type docPersist struct {
 	dataFile          *os.File   // Positions are stored in this file.
-	spans             []byteSpan // Indexes into `dataFile`. These is a byteSpan per page.
+	spans             []byteSpan // Indexes into `dataFile`. These is a byteSpan per page. !@#$ stored where?
 	dataPath          string     // Path of `dataFile`.
 	spansPath         string     // Path where `spans` is saved.
 	textDir           string     // Used for debugging
@@ -42,7 +41,7 @@ type docPersist struct {
 }
 
 // docData is the data for indexing a PDF file in memory.
-// TODO: This is now only informational. Remove.
+// TODO: This is now only informational. Remove. !@#$
 type docData struct {
 	pageNums  []uint32 // (1-offset) PDF page numbers.
 	pageTexts []string // extracted text for pages.
@@ -250,9 +249,9 @@ func (docPos *DocPositions) saveJsonDebug() error {
 }
 
 // AddDocPage adds a page with (1-offset) page number `pageNum` and contents `ppos` to `docPos`.
-// It returns the page index, that can be used to access this page from ReadPagePositions()
+// It returns the page index that can be used to access this page from ReadPagePositions()
 // TODO: Can we remove `text` param for production code? By the time this function is called we have
-// already indexed the test.
+// already indexed the text.
 func (docPos *DocPositions) AddDocPage(pageNum uint32, ppos PagePositions, text string) (
 	uint32, error) {
 	if pageNum == 0 {
@@ -268,6 +267,7 @@ func (docPos *DocPositions) AddDocPage(pageNum uint32, ppos PagePositions, text 
 	return docPos.addDocPagePersist(pageNum, ppos, text)
 }
 
+// !@#$ Do we need to be writing to disk here?
 func (docPos *DocPositions) addDocPagePersist(pageNum uint32, ppos PagePositions, text string) (uint32,
 	error) {
 	b := flatbuffers.NewBuilder(0)
@@ -292,6 +292,7 @@ func (docPos *DocPositions) addDocPagePersist(pageNum uint32, ppos PagePositions
 	docPos.spans = append(docPos.spans, span)
 	pageIdx := uint32(len(docPos.spans) - 1)
 
+	// !@#$ Remove. Maybe record line numbers
 	filename := docPos.textPath(pageIdx)
 	err = ioutil.WriteFile(filename, []byte(text), 0644)
 	if err != nil {
@@ -311,7 +312,7 @@ func (docPos *DocPositions) pageText(pageIdx uint32) (string, error) {
 
 // readPersistedPageText returns the text extracted for page with in `docPos` with page index
 // `pageIdx` for a persisted index.
-// TODO: Can we remove this? See pageText().
+// TODO: Can we remove this? See pageText(). !@#$
 func (docPos *DocPositions) readPersistedPageText(pageIdx uint32) (string, error) {
 	filename := docPos.textPath(pageIdx)
 	b, err := ioutil.ReadFile(filename)

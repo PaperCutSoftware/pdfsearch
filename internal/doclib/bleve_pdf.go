@@ -38,9 +38,9 @@ func (blevePdf *BlevePdf) indexDocPagesLocFile(index bleve.Index, inPath string)
 	return blevePdf.indexDocPagesLocReader(index, inPath, rs)
 }
 
-// indexDocPagesLocReader updates `index` and `blevePdf` with the positions of the text in the
-// PDF file accessed by `rs`.
-// `inPath` is the name of the PDF file. It is provided to help with debugging but is not used.
+// indexDocPagesLocReader updates `index` and `blevePdf` with the positions of the text in the PDF
+// accessed by `rs`.
+// `inPath` is the name of the PDF file. It is provided to help with debugging only.
 func (blevePdf *BlevePdf) indexDocPagesLocReader(index bleve.Index, inPath string,
 	rs io.ReadSeeker) (dtPdf, dtBleve time.Duration, err error) {
 	defer blevePdf.check()
@@ -56,10 +56,10 @@ func (blevePdf *BlevePdf) indexDocPagesLocReader(index bleve.Index, inPath strin
 	common.Log.Debug("indexDocPagesLocReader: inPath=%q docPages=%d", inPath, len(docPages))
 
 	t0 = time.Now()
-	// Update index, the bleve index.
+	// Update `index`, the bleve index.
 	for i, dp := range docPages {
 		// Don't weigh down the bleve index with the text bounding boxes, just give it the bare
-		// mininum it needs: an id that encodest the document number and page number; and text.
+		// mininum it needs: an id that encodes the document number and page number; and text.
 		id := fmt.Sprintf("%04X.%d", dp.DocIdx, dp.PageIdx)
 		idText := IDText{ID: id, Text: dp.Text}
 
@@ -382,6 +382,7 @@ func openBlevePdf(root string, forceCreate bool) (*BlevePdf, error) {
 // It returns the text as a DocPageText per page.
 // The []DocPageText refer to DocPositions which are stored in blevePdf.hashDoc which is updated in
 // this function.
+// !@#$ Move to a separate go routine?
 func (blevePdf *BlevePdf) extractDocPagePositionsReader(inPath string, rs io.ReadSeeker) (
 	[]DocPageText, error) {
 	fd, err := createFileDesc(inPath, rs)
@@ -394,7 +395,7 @@ func (blevePdf *BlevePdf) extractDocPagePositionsReader(inPath string, rs io.Rea
 	if err != nil {
 		return nil, err
 	}
-	// We need to do be able to back out of partially added entries in blevePdf.
+	// We need to do be able to back out of partially added entries in blevePdf. !@#$
 	// The DocPositions is added near the end of blevePdf.doExtract():
 	//      See blevePdf.hashDoc[fd.Hash] = docPos
 	// while other maps are updated earlier in blevePdf.addFile()
@@ -593,8 +594,7 @@ func (blevePdf *BlevePdf) docPagePositions(docIdx uint64, pageIdx uint32) (
 	return docPos.inPath, pageNum, ppos, err
 }
 
-// createDocPositions adds fileDesc `fd` to `blevePdf` and returns a DocPositions that is reading ]
-// for writing.
+// createDocPositions adds fileDesc `fd` to `blevePdf` and returns a DocPositions for writing.
 // createDocPositions always populates the returned DocPositions with base fields.
 // In a persistent `blevePdf`, necessary directories are created and files are opened.
 func (blevePdf *BlevePdf) createDocPositions(fd fileDesc) (*DocPositions, error) {
@@ -657,7 +657,6 @@ func (blevePdf *BlevePdf) baseFields(docIdx uint64) (*DocPositions, error) {
 	hash := blevePdf.fdList[docIdx].Hash
 
 	docPos := DocPositions{
-		blevePdf:      blevePdf,
 		inPath:        inPath,
 		docIdx:        docIdx,
 		pagePositions: map[uint32]PagePositions{},
