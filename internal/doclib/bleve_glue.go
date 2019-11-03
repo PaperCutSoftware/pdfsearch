@@ -8,6 +8,7 @@ import (
 
 	"github.com/blevesearch/bleve"
 	"github.com/blevesearch/bleve/analysis/lang/en"
+	"github.com/blevesearch/bleve/index/scorch"
 	btreap "github.com/blevesearch/bleve/index/store/gtreap"
 	"github.com/blevesearch/bleve/mapping"
 	"github.com/papercutsoftware/pdfsearch/internal/utils"
@@ -22,7 +23,7 @@ import (
 // If `forceCreate` is true then an existing index will be deleted.
 func createBleveDiskIndex(indexPath string, forceCreate bool) (bleve.Index, error) {
 	mapping := buildIndexMapping()
-	index, err := bleve.NewUsing(indexPath, mapping, "scorch", "scorch", nil)
+	index, err := bleve.NewUsing(indexPath, mapping, scorch.Name, scorch.Name, nil)
 	if err == bleve.ErrorIndexPathExists {
 		common.Log.Error("Bleve index %q exists.", indexPath)
 		if forceCreate {
