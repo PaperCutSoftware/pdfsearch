@@ -88,7 +88,7 @@ func IndexPdfFiles(pathList []string, persistDir string, forceCreate bool, repor
 			if continueOnFailure {
 				continue
 			}
-			return nil, nil, 0, 0, dtPdf, dtBleve, fmt.Errorf("Could not index file %q", inPath)
+			return nil, nil, 0, 0, dtPdf, dtBleve, fmt.Errorf("could not index file %q", inPath)
 		}
 		blevePdf.check()
 		docCount, err := index.DocCount()

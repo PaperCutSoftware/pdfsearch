@@ -41,14 +41,15 @@ func (blevePdf *BlevePdf) indexDocPagesLoc(index bleve.Index, inPath string) (
 	common.Log.Debug("indexDocPagesLoc: inPath=%q docPages=%d", inPath, len(docPages))
 
 	t0 = time.Now()
-	// Update `index`, the bleve index.
+	batch := index.NewBatch()
+	// Update `batch`.
 	for i, dp := range docPages {
 		// Don't weigh down the bleve index with the text bounding boxes, just give it the bare
 		// mininum it needs: an id that encodes the document number and page number; and text.
 		id := fmt.Sprintf("%04X.%d", dp.DocIdx, dp.PageIdx)
 		idText := IDText{ID: id, Text: dp.Text}
 
-		err = index.Index(id, idText)
+		err = batch.Index(id, idText)
 		if err != nil {
 			return dtPdf, dtBleve, err
 		}
@@ -58,6 +59,11 @@ func (blevePdf *BlevePdf) indexDocPagesLoc(index bleve.Index, inPath string) (
 				i+1, len(docPages), dt.Seconds(), dt.Seconds()/float64(i+1))
 			common.Log.Debug("\tid=%q text=%d", id, len(idText.Text))
 		}
+	}
+	// Update `index`, the bleve index.
+	err = index.Batch(batch)
+	if err != nil {
+		return dtPdf, dtBleve, err
 	}
 	dtBleve = time.Since(t0)
 	dt := dtPdf + dtBleve
@@ -537,9 +543,9 @@ func (blevePdf *BlevePdf) baseFields(docIdx uint64) (*DocPositions, error) {
 	locPath := blevePdf.docPath(hash)
 	// !@#$ No need for this
 	persist := docPersist{
-		dataPath:          locPath + ".dat",
-		partitionsPath:    locPath + ".idx.json",
-		textDir:           locPath + ".page.contents",
+		dataPath:       locPath + ".dat",
+		partitionsPath: locPath + ".idx.json",
+		textDir:        locPath + ".page.contents",
 	}
 	docPos.docPersist = &persist
 
