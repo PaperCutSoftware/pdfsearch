@@ -12,7 +12,6 @@ import (
 
 	"github.com/papercutsoftware/pdfsearch"
 	"github.com/papercutsoftware/pdfsearch/examples/cmd_utils"
-	"github.com/papercutsoftware/pdfsearch/internal/utils"
 )
 
 const usage = `Usage: go run pdf_search_demo.go [OPTIONS] -f "pcng-manual*.pdf"  PaperCut NG
@@ -37,6 +36,7 @@ func main() {
 
 	cmd_utils.MakeUsage(usage)
 	flag.Parse()
+	pdfsearch.InitLogging()
 
 	if len(flag.Args()) < 1 {
 		flag.Usage()
@@ -77,7 +77,7 @@ func main() {
 		os.Exit(1)
 	}
 	// Save a copy of the marked up file for posterity.
-	if err := copyMarkedupResults(outDir, outPath, pathPattern, termExt); err != nil {
+	if err := pdfsearch.CopyMarkedupResults(outDir, outPath, pathPattern, termExt); err != nil {
 		fmt.Fprintf(os.Stderr, "copyMarkedupResults failed. err=%v\n", err)
 		os.Exit(1)
 	}
@@ -184,27 +184,6 @@ func showResults(pathList []string, pdfIndex pdfsearch.PdfIndex, results pdfsear
 		numPages, len(pathList), showList,
 		pdfIndex.Duration(),
 		outPath)
-	return nil
-}
-
-// copyMarkedupResults saves a copy of the PDF in `outPath` in the search history directory `outDir`.
-// The file name is synthesized from `pathPattern`, the PDFs in the index and `termExt` the search
-// term with spaces replaced by periods.
-func copyMarkedupResults(outDir, outPath, pathPattern, termExt string) error {
-	base := filepath.Base(pathPattern)
-	base = strings.Replace(base, "*", "_all_", -1)
-	base = utils.ChangePathExt(base, "")
-	base = fmt.Sprintf("%s.%s.pdf", base, termExt)
-	outPath2 := filepath.Join(outDir, base)
-	err := utils.MkDir(outDir)
-	if err != nil {
-		return err
-	}
-	err = utils.CopyFile(outPath, outPath2)
-	if err != nil {
-		return err
-	}
-	fmt.Fprintf(os.Stderr, "Marked up search results in %q\n", outPath2)
 	return nil
 }
 

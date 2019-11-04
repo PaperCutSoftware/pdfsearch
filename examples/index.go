@@ -13,7 +13,7 @@ import (
 	"github.com/papercutsoftware/pdfsearch/examples/cmd_utils"
 )
 
-const usage = `Usage: go run index.go [OPTIONS]  pcng-manual*.pdf
+const usage = `Usage: go run index.go [OPTIONS] pcng-manual*.pdf
   Adds PDFs that match "pcng-manual*.pdf" to the index.
 `
 
@@ -22,6 +22,7 @@ func main() {
 	flag.StringVar(&persistDir, "s", persistDir, "The on-disk index is stored here.")
 	cmd_utils.MakeUsage(usage)
 	flag.Parse()
+	pdfsearch.InitLogging()
 
 	if len(flag.Args()) < 1 {
 		flag.Usage()

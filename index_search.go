@@ -19,12 +19,19 @@ package pdfsearch
 import (
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/blevesearch/bleve"
 	"github.com/papercutsoftware/pdfsearch/internal/doclib"
+	"github.com/papercutsoftware/pdfsearch/internal/utils"
 	"github.com/unidoc/unipdf/v3/common"
 )
+
+// InitLogging makes doclib.InitLogging public.
+var InitLogging func() = doclib.InitLogging
 
 // PdfMatchSet makes doclib.PdfMatchSet public.
 type PdfMatchSet doclib.PdfMatchSet
@@ -181,4 +188,31 @@ func (p PdfIndex) NumPages() int {
 func ExposeErrors() {
 	doclib.ExposeErrors = true
 	doclib.CheckConsistency = true
+}
+
+// CopyMarkedupResults saves a copy of the PDF in `outPath` in the search history directory `outDir`.
+// The file name is synthesized from `pathPattern`, the PDFs in the index and `termExt` the search
+// term with spaces replaced by periods.
+func CopyMarkedupResults(outDir, outPath, pathPattern, termExt string) error {
+	var base string
+	if pathPattern != "" {
+		base = filepath.Base(pathPattern)
+		base = strings.Replace(base, "*", "_all_", -1)
+	} else {
+		base = "search"
+	}
+	base = utils.ChangePathExt(base, "")
+	base = fmt.Sprintf("%s.%s.pdf", base, termExt)
+
+	outPath2 := filepath.Join(outDir, base)
+	err := utils.MkDir(outDir)
+	if err != nil {
+		return err
+	}
+	err = utils.CopyFile(outPath, outPath2)
+	if err != nil {
+		return err
+	}
+	fmt.Fprintf(os.Stderr, "Marked up search results in %q\n", outPath2)
+	return nil
 }
