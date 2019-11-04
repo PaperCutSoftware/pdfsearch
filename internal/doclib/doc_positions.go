@@ -31,18 +31,18 @@ type DocPositions struct {
 
 // docPersist tracks the info for indexing a PDF file on disk.
 type docPersist struct {
-	dataFile          *os.File   // Positions are stored in this file.
-	spans             []byteSpan // Indexes into `dataFile`. These is a byteSpan per page. !@#$ stored where?
-	dataPath          string     // Path of `dataFile`.
-	spansPath         string     // Path where `spans` is saved.
-	textDir           string     // Used for debugging
-	pagePositionsPath string     // !@## What is this?
+	dataFile          *os.File        // Positions are stored in this file.
+	pagePartitions    []pagePartition // Indexes into `dataFile`. There is a pagePartition per page.
+	dataPath          string          // Path of `dataFile`.
+	spansPath         string          // Path where `spans` is saved.
+	textDir           string          // Used for debugging
+	pagePositionsPath string          // !@## What is this?
 }
 
-// byteSpan is the location of the bytes of a PagePositions in a data file.
-// The span is over [Offset, Offset+Size).
-// There is one byteSpan (corresponding to a PagePositions) per page.
-type byteSpan struct {
+// pagePartition is the location of the bytes of a PagePositions in a data file.
+// The partition is over [Offset, Offset+Size).
+// There is one pagePartition (corresponding to a PagePositions) per page.
+type pagePartition struct {
 	Offset  uint32 // Offset in the data file for the PagePositions for a page.
 	Size    uint32 // Size of the PagePositions in the data file.
 	Check   uint32 // CRC checksum for the PagePositions data.
@@ -65,11 +65,10 @@ func (docPos *DocPositions) Equals(e *DocPositions) bool {
 	return true
 }
 
-// String returns a human readable string describing `d`.
+// String returns a human readable string describing `docPos`.
 func (docPos DocPositions) String() string {
 	var sb strings.Builder
-	fmt.Fprintf(&sb, "DocPositions{%q docIdx=%d",
-		filepath.Base(docPos.inPath), docPos.docIdx)
+	fmt.Fprintf(&sb, "DocPositions{%q docIdx=%d", filepath.Base(docPos.inPath), docPos.docIdx)
 	sb.WriteString(docPos.docPersist.String())
 	sb.WriteString("}")
 	return sb.String()
@@ -96,8 +95,8 @@ func (docPos DocPositions) check() {
 // String returns a human readable string describing docPersist `d`.
 func (d docPersist) String() string {
 	var parts []string
-	for i, span := range d.spans {
-		parts = append(parts, fmt.Sprintf("\t%2d: %v", i+1, span))
+	for i, partition := range d.pagePartitions {
+		parts = append(parts, fmt.Sprintf("\t%2d: %v", i+1, partition))
 	}
 	return fmt.Sprintf("docPersist{%s}", strings.Join(parts, "\n"))
 }
@@ -114,18 +113,17 @@ func (docPos *DocPositions) openDoc() error {
 	if err != nil {
 		return err
 	}
-	var spans []byteSpan
-	if err := json.Unmarshal(b, &spans); err != nil {
+	var pagePartitions []pagePartition
+	if err := json.Unmarshal(b, &pagePartitions); err != nil {
 		return err
 	}
-	docPos.spans = spans
-
+	docPos.pagePartitions = pagePartitions
 	return nil
 }
 
 // Save saves `docPos` to disk if it peristent.
 func (docPos *DocPositions) Save() error {
-	b, err := json.MarshalIndent(docPos.spans, "", "\t")
+	b, err := json.MarshalIndent(docPos.pagePartitions, "", "\t")
 	if err != nil {
 		return err
 	}
@@ -195,7 +193,7 @@ func (docPos *DocPositions) addDocPagePersist(pageNum uint32, ppos PagePositions
 		return 0, err
 	}
 
-	span := byteSpan{
+	partition := pagePartition{
 		Offset:  uint32(offset),
 		Size:    uint32(len(buf)),
 		Check:   check,
@@ -206,8 +204,8 @@ func (docPos *DocPositions) addDocPagePersist(pageNum uint32, ppos PagePositions
 		return 0, err
 	}
 
-	docPos.spans = append(docPos.spans, span)
-	pageIdx := uint32(len(docPos.spans) - 1)
+	docPos.pagePartitions = append(docPos.pagePartitions, partition)
+	pageIdx := uint32(len(docPos.pagePartitions) - 1)
 
 	// !@#$ Remove. Maybe record line numbers
 	filename := docPos.textPath(pageIdx)
@@ -254,7 +252,7 @@ func (docPos *DocPositions) pageKeys() []int {
 
 func (docPos *DocPositions) readPersistedPagePositions(pageIdx uint32) (
 	uint32, PagePositions, error) {
-	e := docPos.spans[pageIdx]
+	e := docPos.pagePartitions[pageIdx]
 	if e.PageNum == 0 {
 		return 0, PagePositions{}, fmt.Errorf("Bad span pageIdx=%d e=%+v", pageIdx, e)
 	}

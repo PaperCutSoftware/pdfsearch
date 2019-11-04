@@ -96,7 +96,7 @@ func (blevePdf *BlevePdf) indexDocPagesLocReader(index bleve.Index, inPath strin
    -----------------
    1 data file + 1 index file per document.
    index file is small and contains offsets of pages in data file. It is made up of
-     byteSpan (12 byte data structure)
+     pagePartition (12 byte data structure)
          offset uint32
          size   uint32
          check  uint32
