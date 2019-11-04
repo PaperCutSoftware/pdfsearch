@@ -27,6 +27,7 @@ func MkDir(dir string) error {
 			common.Log.Error("MkDir: Stat failed. dir=%q err=%v", dir, err)
 			return err
 		}
+		common.Log.Info("MkDir: %q exists", dir)
 		return nil
 	}
 	err = os.Mkdir(dir, 0777)

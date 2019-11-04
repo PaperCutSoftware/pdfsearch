@@ -22,7 +22,7 @@ type OffsetBBox struct {
 }
 
 // BBox returns `t` as a UniDoc rectangle. This is convenient for drawing bounding rectangles around
-// text in a PDF file.
+// text in a PDF.
 func (t OffsetBBox) BBox() model.PdfRectangle {
 	return model.PdfRectangle{
 		Llx: float64(t.Llx),
@@ -30,26 +30,6 @@ func (t OffsetBBox) BBox() model.PdfRectangle {
 		Urx: float64(t.Urx),
 		Ury: float64(t.Ury),
 	}
-}
-
-// Equals returns true if `t` has the same text interval and bounding box as `u`.
-func (t OffsetBBox) Equals(u OffsetBBox) bool {
-	if t.Offset != u.Offset {
-		return false
-	}
-	if t.Llx != u.Llx {
-		return false
-	}
-	if t.Lly != u.Lly {
-		return false
-	}
-	if t.Urx != u.Urx {
-		return false
-	}
-	if t.Ury != u.Ury {
-		return false
-	}
-	return true
 }
 
 // MakeDocPageLocations returns a flatbuffers serialized byte array for `ppos`.
@@ -94,7 +74,6 @@ func ReadDocPageLocations(buf []byte) ([]OffsetBBox, error) {
 }
 
 func getDocPageLocations(sdpl *locations.PagePositions) ([]OffsetBBox, error) {
-
 	// Vectors, such as `Locations`, have a method suffixed with 'Length' that can be used
 	// to query the length of the vector. You can index the vector by passing an index value
 	// into the accessor.

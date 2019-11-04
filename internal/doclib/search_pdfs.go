@@ -125,7 +125,7 @@ func SearchPdfIndex(persistDir, term string, maxResults int) (PdfMatchSet, error
 	if err != nil {
 		return p, fmt.Errorf("Could not open Bleve index %q", indexPath)
 	}
-	common.Log.Debug("index=%s", index)
+	common.Log.Debug("index=%v", index)
 
 	blevePdf, err := openBlevePdf(persistDir, false)
 	if err != nil {
@@ -152,10 +152,11 @@ func (blevePdf *BlevePdf) SearchBleveIndex(index bleve.Index, term0 string, maxR
 	p := PdfMatchSet{}
 	common.Log.Debug("SearchBleveIndex: term0=%q maxResults=%d", term0, maxResults)
 
-	if blevePdf.Len() == 0 {
-		common.Log.Info("SearchBleveIndex: Empty positions store %s", blevePdf)
-		return p, nil
-	}
+	// if blevePdf.Len() == 0 {
+	// 	common.Log.Info("SearchBleveIndex: Empty positions store %s", blevePdf)
+	// 	panic("1")
+	// 	return p, nil
+	// }
 
 	// TODO precompute analyzer?
 	// TODO: Are tokens needed? Is there a better way of computing spans/.
@@ -231,10 +232,9 @@ func (blevePdf *BlevePdf) SearchBleveIndex(index bleve.Index, term0 string, maxR
 				common.Log.Debug("     pos %d =%v", k, pos)
 			}
 		}
-
 	}
 
-	common.Log.Debug("%d Hits", len(searchResults.Hits))
+	common.Log.Info("%d Hits", len(searchResults.Hits))
 	for i, hit := range searchResults.Hits {
 		common.Log.Debug("%3d: %4.2f %3d %q", i, hit.Score, hit.Size(), hit.String())
 	}

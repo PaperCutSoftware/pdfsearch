@@ -31,12 +31,11 @@ type DocPositions struct {
 
 // docPersist tracks the info for indexing a PDF on disk.
 type docPersist struct {
-	dataFile          *os.File        // Positions are stored in this file.
-	pagePartitions    []pagePartition // Indexes into `dataFile`. There is a pagePartition per page.
-	dataPath          string          // Path of `dataFile`.
-	spansPath         string          // Path where `spans` is saved.
-	textDir           string          // Used for debugging
-	pagePositionsPath string          // !@## What is this?
+	dataFile       *os.File        // Positions are stored in this file.
+	pagePartitions []pagePartition // Indexes into `dataFile`. There is a pagePartition per page.
+	dataPath       string          // Path of `dataFile`.
+	partitionsPath string          // Path where `pagePartitions` is saved.
+	textDir        string          // Extracted text. Used for debugging
 }
 
 // pagePartition is the location of the bytes of a PagePositions in a data file.
@@ -93,7 +92,7 @@ func (docPos *DocPositions) openDoc() error {
 	}
 	docPos.dataFile = f
 
-	b, err := ioutil.ReadFile(docPos.spansPath)
+	b, err := ioutil.ReadFile(docPos.partitionsPath)
 	if err != nil {
 		return err
 	}
@@ -111,50 +110,19 @@ func (docPos *DocPositions) Save() error {
 	if err != nil {
 		return err
 	}
-	return ioutil.WriteFile(docPos.spansPath, b, 0666)
+	return ioutil.WriteFile(docPos.partitionsPath, b, 0666)
 }
 
-// Close closes `docPos`'s open files if it is persistent.
+// Close closes `docPos`'s open files.
 func (docPos *DocPositions) Close() error {
-	if err := docPos.saveJsonDebug(); err != nil {
-		return err
-	}
 	if err := docPos.Save(); err != nil {
 		return err
 	}
 	return docPos.dataFile.Close()
 }
 
-// saveJsonDebug serializes `docPos` to file `docPos.pagePositionsPath` as JSON.
-// TODO: Remove from production code?
-func (docPos *DocPositions) saveJsonDebug() error {
-	common.Log.Debug("saveJsonDebug: pagePositions=%d pagePositionsPath=%q", len(docPos.pagePositions),
-		docPos.pagePositionsPath)
-	var pageNums []uint32
-	for p := range docPos.pagePositions {
-		pageNums = append(pageNums, uint32(p))
-	}
-	sort.Slice(pageNums, func(i, j int) bool { return pageNums[i] < pageNums[j] })
-	common.Log.Debug("saveJsonDebug: pageNums=%+v", pageNums)
-	var data []byte
-	for _, pageNum := range pageNums {
-		ppos, ok := docPos.pagePositions[pageNum]
-		if !ok {
-			common.Log.Error("saveJsonDebug: pageNum=%d not in pagePositions", pageNum)
-			return errors.New("pageNum no in pagePositions")
-		}
-		b, err := json.MarshalIndent(ppos, "", "\t")
-		if err != nil {
-			return err
-		}
-		common.Log.Debug("saveJsonDebug: page %d: %d bytes", pageNum, len(b))
-		data = append(data, b...)
-	}
-	return ioutil.WriteFile(docPos.pagePositionsPath, data, 0666)
-}
-
 // AddDocPage adds a page with (1-offset) page number `pageNum` and contents `ppos` to `docPos`.
-// It returns the page index that can be used to access this page from ReadPagePositions()
+// It returns the page index that can be used to access this page from ReadPagePositions().
 // TODO: Can we remove `text` param for production code? By the time this function is called we have
 // already indexed the text.
 func (docPos *DocPositions) AddDocPage(pageNum uint32, ppos PagePositions, text string) (
@@ -167,8 +135,8 @@ func (docPos *DocPositions) AddDocPage(pageNum uint32, ppos PagePositions, text 
 }
 
 // !@#$ Do we need to be writing to disk here?
-func (docPos *DocPositions) addDocPagePersist(pageNum uint32, ppos PagePositions, text string) (uint32,
-	error) {
+func (docPos *DocPositions) addDocPagePersist(pageNum uint32, ppos PagePositions, text string) (
+	uint32, error) {
 	b := flatbuffers.NewBuilder(0)
 	buf := serial.MakeDocPageLocations(b, ppos.offsetBBoxes)
 	check := crc32.ChecksumIEEE(buf) // uint32
