@@ -35,7 +35,7 @@ type PdfMatchSet struct {
 // PdfPageMatch describes the search results for a PDF page returned from a search over a PDF index.
 // It is the analog of a bleve search.DocumentMatch.
 type PdfPageMatch struct {
-	InPath        string   // Path of the PDF file that was matched. (A name stored in the index.)
+	InPath        string   // Path of the PDF that was matched. (A name stored in the index.)
 	PageNum       uint32   // 1-offset page number of the PDF page containing the matched text.
 	LineNums      []int    // 1-offset line number of the matched text within the extracted page text.
 	Lines         []string // The contents of the line containing the matched text.
@@ -310,8 +310,8 @@ func (s PdfMatchSet) String() string {
 	return sb.String()
 }
 
-// Files returns the PDF file names names in PdfMatchSet `s`. These are all the PDF that contained
-// at least one match of the search term.
+// Files returns the PDF file names in PdfMatchSet `s`. These are the PDFs that contained at least
+// one match on the search term.
 func (s PdfMatchSet) Files() []string {
 	fileSet := map[string]struct{}{}
 	var files []string
@@ -326,10 +326,12 @@ func (s PdfMatchSet) Files() []string {
 }
 
 // hitToPdfMatch returns the PdfPageMatch corresponding the bleve DocumentMatch `hit`.
-// The returned PdfPageMatch also contains information that is not in `hit` that is looked up in `blevePdf`.
-// We purposely try to keep `hit` small to improve bleve indexing speed and to reduce the
-// bleve index size.
-func (blevePdf *BlevePdf) hitToPdfMatch(tokens analysis.TokenStream, hit *search.DocumentMatch) (PdfPageMatch, error) {
+// The returned PdfPageMatch also contains information that is not in `hit` that is looked up in
+// `blevePdf`.
+// We purposely try to keep `hit` small to improve bleve indexing speed and to reduce the bleve
+// index size.
+func (blevePdf *BlevePdf) hitToPdfMatch(tokens analysis.TokenStream, hit *search.DocumentMatch) (
+	PdfPageMatch, error) {
 	m, err := hitToBleveMatch(tokens, hit)
 	if err != nil {
 		return PdfPageMatch{}, err
@@ -363,7 +365,7 @@ func (blevePdf *BlevePdf) hitToPdfMatch(tokens analysis.TokenStream, hit *search
 	}, nil
 }
 
-// String() returns a string describing `m`.
+// String returns a string describing `m`.
 func (m bleveMatch) String() string {
 	return fmt.Sprintf("docIdx=%d pageIdx=%d (score=%.3f)\n%s",
 		m.docIdx, m.pageIdx, m.Score, m.Fragment)

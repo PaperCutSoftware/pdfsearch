@@ -13,7 +13,7 @@ import (
 	"github.com/unidoc/unipdf/v3/model"
 )
 
-// PagePositions is used to link per-document data in a bleve index to the PDF file the data was
+// PagePositions is used to link per-document data in a bleve index to the PDF the data was
 // extracted from.
 // There is one PagePositions per PDF page.
 // PagePositions stores the locations of text fragments on a page. PdfPageMatch includes a

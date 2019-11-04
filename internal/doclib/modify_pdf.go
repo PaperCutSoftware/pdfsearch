@@ -27,7 +27,7 @@ type ExtractList struct {
 	contents   map[string]map[uint32]pageContent // contents[inPath][pageNum] is the contents to be added to inPath:pageNum.
 }
 
-var errMissing = errors.New("Missing value")
+var errMissing = errors.New("missing value")
 
 // pdfPage is a PDF page.
 type pdfPage struct {
@@ -38,8 +38,8 @@ type pdfPage struct {
 // pageContent is instructions for adding items to a PDF page.
 // Currently this is a list of rectangles.
 type pageContent struct {
-	rects []model.PdfRectangle // the rectangles to be drawn on the PDF page
-	page  *model.PdfPage       // the UniDoc PDF page. Created as needed.
+	rects []model.PdfRectangle // The rectangles to be drawn on the PDF page.
+	page  *model.PdfPage       // The UniDoc PDF page. Created as needed.
 }
 
 // String returns a string describing `l`.
@@ -63,7 +63,7 @@ func CreateExtractList(maxPages, maxPerPage int) *ExtractList {
 }
 
 // AddRect adds to `l`, instructions to draw rectangle `r` on (1-offset) page number `pageNum` of
-// PDF file `inPath`
+// PDF `inPath`
 func (l *ExtractList) AddRect(inPath string, pageNum uint32, r model.PdfRectangle) {
 	common.Log.Debug("AddRect: %q %3d %v", filepath.Base(inPath), pageNum, r)
 	if pageNum == 0 {
@@ -102,7 +102,7 @@ const (
 	ShadowWidth = 0.2
 )
 
-// SaveOutputPdf is called  to markup a PDF file with the locations of text.
+// SaveOutputPdf is called to markup a PDF with the locations in `l`.
 // `l` contains the input PDF names and the pages and coordinates to mark.
 // The resulting PDF is written to `outPath`.
 func (l *ExtractList) SaveOutputPdf(outPath string) error {

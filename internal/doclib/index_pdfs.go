@@ -14,7 +14,7 @@ import (
 	"github.com/unidoc/unipdf/v3/common"
 )
 
-// continueOnFailure tells us whether to continue indexing PDF files after errors have occurred.
+// continueOnFailure tells us whether to continue indexing PDFs after errors have occurred.
 const continueOnFailure = true
 
 // IndexPdfFiles returns a BlevePdf and a bleve.Index over the PDFs in `pathList`.
@@ -23,7 +23,7 @@ const continueOnFailure = true
 // Returns: (blevePdf, index, numFiles, totalPages, dtPdf, dtBleve, err) where
 //   blevePdf: mapping of a bleve index to PDF pages and text coordinates
 //   index: a bleve index
-//   numFiles: number of PDF files succesfully indexed
+//   numFiles: number of PDFs succesfully indexed
 //   totalPages: number of PDF pages succesfully indexed
 //   dtPdf: number of seconds spent building blevePdf
 //   dtBleve: number of seconds spent building index
@@ -32,7 +32,7 @@ const continueOnFailure = true
 // !@#$ Parallelize this
 func IndexPdfFiles(pathList []string, persistDir string, forceCreate bool, report func(string)) (
 	*BlevePdf, bleve.Index, int, int, time.Duration, time.Duration, error) {
-	common.Log.Debug("Indexing %d PDF files. forceCreate=%t", len(pathList), forceCreate)
+	common.Log.Debug("Indexing %d PDFs. forceCreate=%t", len(pathList), forceCreate)
 	var dtPdf, dtBleve, dtP, dtB time.Duration
 
 	// !@#$

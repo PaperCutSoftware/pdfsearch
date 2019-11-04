@@ -16,7 +16,7 @@ import (
 )
 
 const usage = `Usage: go run pdf_search_demo.go [OPTIONS] -f "pcng-manual*.pdf"  PaperCut NG
-  Performs a full text search for "PaperCut NG" in PDF files that match "pcng-manual*.pdf".
+  Performs a full text search for "PaperCut NG" in PDFs that match "pcng-manual*.pdf".
 `
 
 func main() {
@@ -28,8 +28,8 @@ func main() {
 	outPath := "search.results.pdf"
 	outDir := "search.history"
 
-	flag.StringVar(&pathPattern, "f", pathPattern, "PDF file(s) to index.")
-	flag.StringVar(&outPath, "o", outPath, "Name of PDF file that will show marked up results.")
+	flag.StringVar(&pathPattern, "f", pathPattern, "PDF(s) to index.")
+	flag.StringVar(&outPath, "o", outPath, "Name of PDF that will show marked up results.")
 	flag.StringVar(&persistDir, "s", persistDir, "The on-disk index is stored here.")
 	flag.BoolVar(&reuse, "r", reuse, "Reused stored index on disk for the last -p run.")
 	flag.BoolVar(&nameOnly, "l", nameOnly, "Show matching file names only.")
@@ -83,7 +83,7 @@ func main() {
 	}
 }
 
-// runIndexSearchShow creates a pdfsearch.PdfIndex for the PDF files in `pathList`, searches for
+// runIndexSearchShow creates a pdfsearch.PdfIndex for the PDFs in `pathList`, searches for
 // `term` in this index, and shows the results.
 // It also creates a marked-up PDF containing the original PDF pages with the matched terms marked
 //  and saves it to `outPath`.
@@ -101,7 +101,7 @@ func runIndexSearchShow(pathList []string, term, persistDir string, reuse, nameO
 	return showResults(pathList, pdfIndex, results, dt, dtIndex, nameOnly, maxResults, outPath)
 }
 
-// runIndexSearch creates a pdfsearch.PdfIndex for the PDF files in `pathList`, searches for `term`
+// runIndexSearch creates a pdfsearch.PdfIndex for the PDFs in `pathList`, searches for `term`
 //  in this index and returns the pdfsearch.PdfIndex, the search results and the indexing and search
 //  durations.
 // This is the main function. It shows you how to create an index annd search it.
@@ -135,7 +135,7 @@ func runIndexSearch(pathList []string, term, persistDir string, reuse bool, maxR
 }
 
 // showResults writes a report on `results`, some search results (for a term that we don't show
-//  here) on `pdfIndex` that was build from the PDF files in `pathList`.
+//  here) on `pdfIndex` that was build from the PDFs in `pathList`.
 // It also creates a marked-up PDF containing the original PDF pages with the matched terms marked
 //  and saves it to `outPath`.
 //

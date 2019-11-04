@@ -1,7 +1,7 @@
 examples
 ========
 
-This library implements full text search for PDF files.
+This library implements full text search for PDFs.
 * The public APIs are in [index_search.go](index_search.go).
 * [examples/pdf_search_demo.go](examples/pdf_search_demo.go) is a command line program
   that demonstrates these APIs.

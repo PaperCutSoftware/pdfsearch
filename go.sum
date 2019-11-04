@@ -8,6 +8,7 @@ github.com/blevesearch/go-porterstemmer v1.0.2/go.mod h1:haWQqFT3RdOGz7PJuM3or/p
 github.com/blevesearch/segment v0.0.0-20160915185041-762005e7a34f h1:kqbi9lqXLLs+zfWlgo1PIiRQ86n33K1JKotjj4rSYOg=
 github.com/blevesearch/segment v0.0.0-20160915185041-762005e7a34f/go.mod h1:IInt5XRvpiGE09KOk9mmCMLjHhydIhNPKPPFLFBB7L8=
 github.com/bmatcuk/doublestar v1.1.1/go.mod h1:UD6OnuiIn0yFxxA2le/rnRU1G4RaI4UvFv1sNto9p6w=
+github.com/boltdb/bolt v1.3.1/go.mod h1:clJnj/oiGkjum5o1McbSZDSLxVThjynRyGBgiAx27Ps=
 github.com/boombuler/barcode v1.0.0/go.mod h1:paBWMcWSl3LHKBqUq+rly7CNSldXjb2rDl3JlRe0mD8=
 github.com/coreos/etcd v3.3.10+incompatible/go.mod h1:uF7uidLiAD3TWHmW31ZFd/JWoc32PjwdhPthX9715RE=
 github.com/coreos/go-etcd v2.0.0+incompatible/go.mod h1:Jez6KQU2B/sWsbdaef3ED8NzMklzPG4d5KIOhIy30Tk=

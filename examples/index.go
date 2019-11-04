@@ -14,7 +14,7 @@ import (
 )
 
 const usage = `Usage: go run index.go [OPTIONS]  pcng-manual*.pdf
-  Adds PDF files that match "pcng-manual*.pdf" to the index.
+  Adds PDFs that match "pcng-manual*.pdf" to the index.
 `
 
 func main() {
@@ -46,7 +46,7 @@ func main() {
 	}
 }
 
-// runIndexShow creates a pdfsearch.PdfIndex for the PDF files in `pathList`, searches for
+// runIndexShow creates a pdfsearch.PdfIndex for the PDFs in `pathList`, searches for
 // `term` in this index, and shows the results.
 //  `persistDir`: The directory the pdfsearch.PdfIndex is saved.
 func runIndexShow(pathList []string, persistDir string) error {
@@ -57,7 +57,7 @@ func runIndexShow(pathList []string, persistDir string) error {
 	return showIndex(pathList, pdfIndex, dt)
 }
 
-// runIndex creates a pdfsearch.PdfIndex for the PDF files in `pathList` and returns the
+// runIndex creates a pdfsearch.PdfIndex for the PDFs in `pathList` and returns the
 // pdfsearch.PdfIndex, the search results and the indexing duration.
 // The pdfsearch.PdfIndex is saved in directory `persistDir`.
 // This is the main function. It shows you how to create or open an index.
@@ -74,7 +74,7 @@ func runIndex(pathList []string, persistDir string) (pdfIndex pdfsearch.PdfIndex
 	return pdfIndex, dt, nil
 }
 
-// showIndex writes a report on  on `pdfIndex` that was build from the PDF files in `pathList`.
+// showIndex writes a report on  on `pdfIndex` that was build from the PDFs in `pathList`.
 // `dt` is the duration of the indexing.
 func showIndex(pathList []string, pdfIndex pdfsearch.PdfIndex, dt time.Duration) error {
 	numFiles := pdfIndex.NumFiles()

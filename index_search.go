@@ -1,10 +1,10 @@
 // Copyright 2019 PaperCut Software International Pty Ltd. All rights reserved.
 
 /*
- * Full text search of a list of PDF files.
+ * Full text search of a list of PDFs.
  *
  * Call like this.
- *   p, err := IndexPdfFiles(pathList) creates a PdfIndex `p` for the PDF files in `pathList`.
+ *   p, err := IndexPdfFiles(pathList) creates a PdfIndex `p` for the PDFs in `pathList`.
  *   m, err := p.Search(term, -1) searches `p` for string `term`.
  *
  * e.g.
@@ -51,7 +51,7 @@ const (
 	DefaultPersistRoot = "pdf.store"
 )
 
-// IndexPdfFiles returns an index for the PDF files in `pathList`.
+// IndexPdfFiles returns an index for the PDFs in `pathList`.
 // The index is stored on disk in `persistDir`.
 // `report` is a supplied function that is called to report progress.
 func IndexPdfFiles(pathList []string, persistDir string, report func(string)) (PdfIndex, error) {
@@ -134,18 +134,18 @@ func MarkupPdfResults(results PdfMatchSet, outPath string) error {
 	return extractList.SaveOutputPdf(outPath)
 }
 
-// PdfIndex is an opaque struct that describes an index over some PDF files.
+// PdfIndex is an opaque struct that describes an index over some PDFs.
 // It consists of
 // - a bleve index (bleveIdx)
-// - a mapping between the PDF files and the bleve index (blevePdf)
+// - a mapping between the PDFs and the bleve index (blevePdf)
 // - controls and statistics.
 type PdfIndex struct {
 	persistDir string           // Root directory for storing on-disk indexes.
-	bleveIdx   bleve.Index      // The bleve index used on text extracted from PDF files.
-	blevePdf   *doclib.BlevePdf // Mapping between the PDF files and the bleve index.
-	numFiles   int              // Number of PDF files indexes.
+	bleveIdx   bleve.Index      // The bleve index used on text extracted from PDFs.
+	blevePdf   *doclib.BlevePdf // Mapping between the PDFs and the bleve index.
+	numFiles   int              // Number of PDFs indexes.
 	numPages   int              // Total number of PDF pages indexed.
-	dtPdf      time.Duration    // The time it took to extract text from PDF files.
+	dtPdf      time.Duration    // The time it took to extract text from PDFs.
 	dtBleve    time.Duration    // The time it tool to build the bleve index.
 	reused     bool             // Did on-disk index exist before we ran? Helpful for debugging.
 }

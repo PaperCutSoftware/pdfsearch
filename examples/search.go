@@ -27,7 +27,7 @@ func main() {
 	outPath := "search.results.pdf"
 	outDir := "search.history"
 
-	flag.StringVar(&outPath, "o", outPath, "Name of PDF file that will show marked up results.")
+	flag.StringVar(&outPath, "o", outPath, "Name of PDF that will show marked up results.")
 	flag.StringVar(&persistDir, "s", persistDir, "The on-disk index is stored here.")
 	flag.BoolVar(&serialize, "m", serialize, "Serialize in-memory index to byte array.")
 	flag.BoolVar(&nameOnly, "l", nameOnly, "Show matching file names only.")
@@ -95,7 +95,7 @@ func runSearch(term, persistDir string, maxResults int) (
 }
 
 // showResults writes a report on `results`, some search results (for a term that we don't show
-//  here) on `pdfIndex` that was build from the PDF files in `pathList`.
+//  here) on `pdfIndex` that was build from the PDFs in `pathList`.
 // It also creates a marked-up PDF containing the original PDF pages with the matched terms marked
 //  and saves it to `outPath`.
 //

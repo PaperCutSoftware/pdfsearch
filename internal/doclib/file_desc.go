@@ -34,13 +34,13 @@ func saveFileDescList(jsonPath string, fdList []fileDesc) error {
 	return ioutil.WriteFile(jsonPath, b, 0666)
 }
 
-// fileDesc describes a PDF file.
+// fileDesc describes a PDF on disk.
 // The fields are capitalized so that this json.Unmarshal and json.MarshalIndent will work directly
 // on this struct. These fields are not meant to be referenced outside this library.
 type fileDesc struct {
-	InPath string  // Full path to PDF file.
+	InPath string  // Full path to PDF.
 	Hash   string  // SHA-256 hash of file contents.
-	SizeMB float64 // Size of PDF file on disk in megabytes.
+	SizeMB float64 // Size of PDF on disk in megabytes.
 }
 
 // String returns a human readable description of `fd`.

@@ -17,7 +17,7 @@ import (
 	"github.com/unidoc/unipdf/v3/model"
 )
 
-// IDText is what bleve sees for each page of a PDF file.
+// IDText is what bleve sees for each page of a PDF.
 type IDText struct {
 	// ID identifies the document + page index.
 	ID string
@@ -107,10 +107,10 @@ func (blevePdf *BlevePdf) indexDocPagesLoc(index bleve.Index, inPath string) (
 
 const storeUpdatePeriodSec = 60.0
 
-// BlevePdf links a bleve index over texts to the PDF files that the texts were extracted from,
-// using the hashDoc {file hash: DocPositions} map. For each PDF file, the DocPositions maps
-// extracted text to the location on of text on the PDF page it was extracted from.
-// A BlevePdf can be optionally saved to and retrieved from disk.
+// BlevePdf links a bleve index over texts to the PDFs that the texts were extracted from,
+// using the hashDoc {file hash: DocPositions} map. For each PDF, the DocPositions maps
+// extracted text to the location of text on the PDF page it was extracted from.
+// A BlevePdf can be saved to and retrieved from disk.
 // BlevePdf is intentionally opaque.
 type BlevePdf struct {
 	root   string     // Top level directory of the data saved to disk.
@@ -337,11 +337,11 @@ func (blevePdf *BlevePdf) doExtract(fd fileDesc, docPos *DocPositions) (
 	return docPages, err
 }
 
-// addFile adds PDF fileDesc `fd` to `blevePdf`.fdList.
+// addFile adds PDF fileDesc `fd` to `blevePdf.fdList`.
 // returns: docIdx, inPath, exists
-//     docIdx: Index of PDF file in `blevePdf`.fdList.
+//     docIdx: Index of PDF in `blevePdf.fdList`.
 //     inPath: Path to file. This the first path this file was added to the index with.
-//     exists: true if `fd` was already in blevePdf`.fdList.
+//     exists: true if `fd` was already in `blevePdf.fdList`.
 func (blevePdf *BlevePdf) addFile(fd fileDesc) (uint64, string, bool) {
 	hash := fd.Hash
 	docIdx, exists := blevePdf.hashIndex[hash]

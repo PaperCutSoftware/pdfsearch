@@ -23,13 +23,13 @@ import (
 // extracted from.
 // There is one DocPositions per PDF.
 type DocPositions struct {
-	inPath        string                   // Path of input PDF file.
+	inPath        string                   // Path of input PDF.
 	docIdx        uint64                   // Index into blevePdf.fileList.
 	pagePositions map[uint32]PagePositions // {pageNum: locations of text on page}
 	*docPersist                            // Optional extra fields for on-disk indexes.
 }
 
-// docPersist tracks the info for indexing a PDF file on disk.
+// docPersist tracks the info for indexing a PDF on disk.
 type docPersist struct {
 	dataFile          *os.File        // Positions are stored in this file.
 	pagePartitions    []pagePartition // Indexes into `dataFile`. There is a pagePartition per page.
@@ -270,6 +270,6 @@ func (docPos *DocPositions) textPath(pageIdx uint32) string {
 type DocPageText struct {
 	DocIdx  uint64 // Doc index (0-offset) into BlevePdf.fileList .
 	PageIdx uint32 // Page index (0-offset) into DocPositions.index .
-	PageNum uint32 // Page number in PDF file (1-offset)
+	PageNum uint32 // Page number in PDF (1-offset)
 	Text    string // Extracted page text.
 }
