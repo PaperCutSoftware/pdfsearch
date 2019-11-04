@@ -5,7 +5,6 @@ package doclib
 import (
 	"errors"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"sort"
@@ -26,33 +25,20 @@ type IDText struct {
 	Text string
 }
 
-// indexDocPagesLocFile adds the text of all the pages in PDF file `inPath` to Bleve index `index`.
-func (blevePdf *BlevePdf) indexDocPagesLocFile(index bleve.Index, inPath string) (
+// indexDocPagesLoc adds the text of all the pages in PDF `inPath` to bleve index `index`.
+func (blevePdf *BlevePdf) indexDocPagesLoc(index bleve.Index, inPath string) (
 	dtPdf, dtBleve time.Duration, err error) {
-	rs, err := os.Open(inPath)
-	if err != nil {
-		return dtPdf, dtBleve, err
-	}
-	defer rs.Close()
-	return blevePdf.indexDocPagesLocReader(index, inPath, rs)
-}
-
-// indexDocPagesLocReader updates `index` and `blevePdf` with the positions of the text in the PDF
-// accessed by `rs`.
-// `inPath` is the name of the PDF file. It is provided to help with debugging only.
-func (blevePdf *BlevePdf) indexDocPagesLocReader(index bleve.Index, inPath string,
-	rs io.ReadSeeker) (dtPdf, dtBleve time.Duration, err error) {
 	defer blevePdf.check()
 
 	t0 := time.Now()
 	// Update blevePdf, the PDF <-> bleve mapping.
-	docPages, err := blevePdf.extractDocPagePositionsReader(inPath, rs)
+	docPages, err := blevePdf.extractDocPagePositions(inPath)
 	if err != nil {
-		common.Log.Error("indexDocPagesLocReader: Couldn't extract pages from %q err=%v", inPath, err)
+		common.Log.Error("indexDocPagesLoc: Couldn't extract pages from %q err=%v", inPath, err)
 		return dtPdf, dtBleve, err
 	}
 	dtPdf = time.Since(t0)
-	common.Log.Debug("indexDocPagesLocReader: inPath=%q docPages=%d", inPath, len(docPages))
+	common.Log.Debug("indexDocPagesLoc: inPath=%q docPages=%d", inPath, len(docPages))
 
 	t0 = time.Now()
 	// Update `index`, the bleve index.
@@ -124,32 +110,17 @@ const storeUpdatePeriodSec = 60.0
 // BlevePdf links a bleve index over texts to the PDF files that the texts were extracted from,
 // using the hashDoc {file hash: DocPositions} map. For each PDF file, the DocPositions maps
 // extracted text to the location on of text on the PDF page it was extracted from.
-// A BlevePdf can be optionally saved to and retreived from disk, in which case isMem() returns false.
+// A BlevePdf can be optionally saved to and retrieved from disk.
 // BlevePdf is intentionally opaque.
 type BlevePdf struct {
-	root       string                   // Top level directory of the data saved to disk. "" for in-memory.
-	fdList     []fileDesc               // List of fileDescs of PDFs the indexed data was extracted from.
+	root   string     // Top level directory of the data saved to disk.
+	fdList []fileDesc // List of fileDescs of PDFs the indexed data was extracted from.
+	// Should these be disk access functions? !@#$
 	hashIndex  map[string]uint64        // {file hash: index into fdList}
 	hashPath   map[string]string        // {file hash: file path}
 	hashDoc    map[string]*DocPositions // {file hash: DocPositions}.
 	indexHash  map[uint64]string        // Reverse map of hashIndex. !@#$ Needed for persistent case?
 	updateTime time.Time                // Time of last flush()
-}
-
-// Equals returns true if `blevePdf` contains the same information as `other`.
-func (blevePdf *BlevePdf) Equals(other *BlevePdf) bool {
-	for hash, ldoc := range blevePdf.hashDoc {
-		odoc, ok := other.hashDoc[hash]
-		if !ok {
-			common.Log.Error("BlevePdf.Equal.hash=%#q", hash)
-			return false
-		}
-		if !ldoc.Equals(odoc) {
-			common.Log.Error("BlevePdf.Equal.doc hash=%#q\n%s\n%s", hash, ldoc, odoc)
-			return false
-		}
-	}
-	return true
 }
 
 // String returns a string describing `blevePdf`.
@@ -272,14 +243,13 @@ func openBlevePdf(root string, forceCreate bool) (*BlevePdf, error) {
 	return &blevePdf, nil
 }
 
-// extractDocPagePositionsReader extracts the text of the PDF file referenced by `rs`.
+// extractDocPagePositions extracts the text of the PDF `inPath`.
 // It returns the text as a DocPageText per page.
 // The []DocPageText refer to DocPositions which are stored in blevePdf.hashDoc which is updated in
-// this function.
+// this function. What? !@#$
 // !@#$ Move to a separate go routine?
-func (blevePdf *BlevePdf) extractDocPagePositionsReader(inPath string, rs io.ReadSeeker) (
-	[]DocPageText, error) {
-	fd, err := createFileDesc(inPath, rs)
+func (blevePdf *BlevePdf) extractDocPagePositions(inPath string) ([]DocPageText, error) {
+	fd, err := createFileDesc(inPath)
 	if err != nil {
 		return nil, err
 	}
@@ -296,7 +266,7 @@ func (blevePdf *BlevePdf) extractDocPagePositionsReader(inPath string, rs io.Rea
 	// Therefore if there is an error and early exit from State.doExtract(), the blevePdf maps will
 	// be inconsistent.
 	// TODO: Fix this hack. Add a function that updates all the blevePdf maps atomically.
-	docPages, err := blevePdf.doExtract(fd, rs, docPos)
+	docPages, err := blevePdf.doExtract(fd, docPos)
 	if err != nil {
 		blevePdf.remove(fd.Hash)
 		return nil, err
@@ -305,9 +275,9 @@ func (blevePdf *BlevePdf) extractDocPagePositionsReader(inPath string, rs io.Rea
 }
 
 // TODO: Document
-func (blevePdf *BlevePdf) doExtract(fd fileDesc, rs io.ReadSeeker, docPos *DocPositions) (
+func (blevePdf *BlevePdf) doExtract(fd fileDesc, docPos *DocPositions) (
 	[]DocPageText, error) {
-	pdfPageProcessor, err := CreatePDFPageProcessorReader(fd.InPath, rs)
+	pdfPageProcessor, err := CreatePDFPageProcessorFile(fd.InPath)
 	if err != nil {
 		return nil, err
 	}

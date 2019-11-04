@@ -6,7 +6,6 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"os"
 	"os/user"
@@ -223,25 +222,6 @@ func FileHash(filename string) (string, error) {
 		return "", err
 	}
 	return makeHash(b), nil
-}
-
-// ReaderSizeHash return the size in bytes and the hash of the file referenced by `rs`.
-// The hash is hex encoded string of the SHA-256 digest of the contents of `rs`.
-func ReaderSizeHash(rs io.ReadSeeker) (int64, string, error) {
-	numBytes, err := rs.Seek(0, io.SeekEnd)
-	if err != nil {
-		return 0, "", err
-	}
-	b := make([]byte, numBytes)
-	_, err = rs.Seek(0, io.SeekStart)
-	if err != nil {
-		return 0, "", err
-	}
-	_, err = rs.Read(b)
-	if err != nil {
-		return 0, "", err
-	}
-	return numBytes, makeHash(b), nil
 }
 
 // makeHash returns a hex encoded string of the SHA-256 digest of `b.

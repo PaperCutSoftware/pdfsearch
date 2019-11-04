@@ -3,7 +3,7 @@
 /*
  * Functions for searching a PdfIndex
  *  - BlevePdf.SearchBleveIndex()
- *  - SearchPersistentPdfIndex()
+ *  - SearchPdfIndex()
  */
 
 package doclib
@@ -107,39 +107,11 @@ var ErrNoMatch = errors.New("no match for hit")
 // ErrNoMatch indicates there was no match for a bleve hit. It is not a real error.
 var ErrNoPositions = errors.New("no match for hit")
 
-// Equals returns true if `p` contains the same results as `q`.
-func (s PdfMatchSet) Equals(q PdfMatchSet) bool {
-	if len(s.Matches) != len(q.Matches) {
-		common.Log.Error("PdfMatchSet.Equals.Matches: %d %d", len(s.Matches), len(q.Matches))
-		return false
-	}
-	for i, m := range s.Matches {
-		n := q.Matches[i]
-		if !m.equals(n) {
-			common.Log.Error("PdfMatchSet.Equals.Matches[%d]:\np=%s\nq=%s", i, m, n)
-			return false
-		}
-	}
-	return true
-}
-
-// equals returns true if `p` contains the same result as `q`.
-func (p PdfPageMatch) equals(q PdfPageMatch) bool {
-	if p.InPath != q.InPath {
-		common.Log.Error("PdfPageMatch.Equals.InPath:\n%q\n%q", p.InPath, q.InPath)
-		return false
-	}
-	if p.PageNum != q.PageNum {
-		return false
-	}
-	return true
-}
-
-// SearchPersistentPdfIndex performs a bleve search on the persistent index in `persistDir`/bleve
-// for `term` and returns up to `maxResults` matches. It maps the results to PDF page names, page
+// SearchPdfIndex performs a bleve search on the persistent index in `persistDir/bleve`
+// for `term` and returns up to `maxResults` matches. It maps the results to PDF file names, page
 // numbers, line numbers and page locations using the BlevePdf that was saved in directory
-// `persistDir` by IndexPdfReaders().
-func SearchPersistentPdfIndex(persistDir, term string, maxResults int) (PdfMatchSet, error) {
+// `persistDir` by IndexPdfFiles().
+func SearchPdfIndex(persistDir, term string, maxResults int) (PdfMatchSet, error) {
 	p := PdfMatchSet{}
 
 	indexPath := filepath.Join(persistDir, "bleve")
@@ -549,7 +521,7 @@ func hitToBleveMatch(tokens analysis.TokenStream, hit *search.DocumentMatch) (bl
 	}, nil
 }
 
-// decodeID decodes the ID string passed to bleve in indexDocPagesLocReader().
+// decodeID decodes the ID string passed to bleve in indexDocPagesLoc().
 // id := fmt.Sprintf("%04X.%d", l.DocIdx, l.PageIdx)
 func decodeID(id string) (uint64, uint32, error) {
 	parts := strings.Split(id, ".")

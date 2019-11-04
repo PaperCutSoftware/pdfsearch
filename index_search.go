@@ -12,14 +12,6 @@
  *   p, _ := pdf.IndexPdfFiles(pathList, false)
  *   matches, _ := p.Search("Type 1", -1)
  *   fmt.Printf("Matches=%s\n", matches)
- *
- * There are 2 ways of reading PDF files
- *   1) By filename.
- *         IndexPdfFiles()
- *   2) By io.ReadSeeker
- *         IndexPdfReaders()
- * The io.ReadSeeker methods are for callers that don't have access to the PDF files on a file
- * system.  TODO: Ask Geoff why he needs this.
  */
 
 package pdfsearch
@@ -27,7 +19,6 @@ package pdfsearch
 import (
 	"errors"
 	"fmt"
-	"io"
 	"time"
 
 	"github.com/blevesearch/bleve"
@@ -48,11 +39,6 @@ func (s PdfMatchSet) Files() []string {
 	return doclib.PdfMatchSet(s).Files()
 }
 
-// Equals makes doclib.PdfMatchSet.Equals public.
-func (s PdfMatchSet) Equals(t PdfMatchSet) bool {
-	return doclib.PdfMatchSet(s).Equals(doclib.PdfMatchSet(t))
-}
-
 // Best makes doclib.PdfMatchSet.Best public.
 func (s PdfMatchSet) Best() PdfMatchSet {
 	return PdfMatchSet(doclib.PdfMatchSet(s).Best())
@@ -69,30 +55,18 @@ const (
 // The index is stored on disk in `persistDir`.
 // `report` is a supplied function that is called to report progress.
 func IndexPdfFiles(pathList []string, persistDir string, report func(string)) (PdfIndex, error) {
-	// A nil rsList makes IndexPdfFilesOrReaders uses paths.
-	return IndexPdfReaders(pathList, nil, persistDir, report)
-}
-
-// IndexPdfReaders returns a PdfIndex over the PDF contents read by the io.ReaderSeeker's in `rsList`.
-// The names of the PDFs are in the corresponding position in `pathList`.
-// The index is stored on disk in `persistDir`.
-// `report` is a supplied function that is called to report progress.
-func IndexPdfReaders(pathList []string, rsList []io.ReadSeeker, persistDir string,
-	report func(string)) (PdfIndex, error) {
-	_, bleveIdx, numFiles, numPages, dtPdf, dtBleve, err := doclib.IndexPdfFilesOrReaders(pathList,
-		rsList, persistDir, true, report)
+	_, bleveIdx, numFiles, numPages, dtPdf, dtBleve, err := doclib.IndexPdfFiles(pathList,
+		persistDir, true, report)
 	if err != nil {
 		return PdfIndex{}, err
 	}
 	if bleveIdx != nil {
 		bleveIdx.Close()
 	}
-
 	return PdfIndex{
 		persistDir: persistDir,
 		numFiles:   numFiles,
 		numPages:   numPages,
-		readSeeker: len(rsList) > 0,
 		dtPdf:      dtPdf,
 		dtBleve:    dtBleve,
 	}, nil
@@ -114,7 +88,7 @@ func (p PdfIndex) Search(term string, maxResults int) (PdfMatchSet, error) {
 	}
 	common.Log.Debug("maxResults=%d DefaultMaxResults=%d", maxResults, DefaultMaxResults)
 
-	s, err := doclib.SearchPersistentPdfIndex(p.persistDir, term, maxResults)
+	s, err := doclib.SearchPdfIndex(p.persistDir, term, maxResults)
 	if err != nil {
 		return PdfMatchSet{}, err
 	}
@@ -174,36 +148,17 @@ type PdfIndex struct {
 	dtPdf      time.Duration    // The time it took to extract text from PDF files.
 	dtBleve    time.Duration    // The time it tool to build the bleve index.
 	reused     bool             // Did on-disk index exist before we ran? Helpful for debugging.
-	readSeeker bool             // Were io.ReadSeeker functions used. Helpful for debugging.
-}
-
-// Equals returns true if `p` contains the same information as `q`.
-func (p PdfIndex) Equals(q PdfIndex) bool {
-	if p.numFiles != q.numFiles {
-		common.Log.Error("PdfIndex.Equals.numFiles: %d %d\np=%s\nq=%s", p.numFiles, q.numFiles, p, q)
-		return false
-	}
-	if p.numPages != q.numPages {
-		common.Log.Error("PdfIndex.Equals.numPages: %d %d", p.numPages, q.numPages)
-		return false
-	}
-	if !p.blevePdf.Equals(q.blevePdf) {
-		common.Log.Error("PdfIndex.Equals.blevePdf:")
-		return false
-	}
-	return true
 }
 
 // String returns a string describing `p`.
 func (p PdfIndex) String() string {
-	s := p.StorageName()
 	d := p.Duration()
 	var b string
 	if p.blevePdf != nil {
-		b = fmt.Sprintf(" levePdf=%s", p.blevePdf.String())
+		b = fmt.Sprintf(" blevePdf=%s", p.blevePdf.String())
 	}
-	return fmt.Sprintf("PdfIndex{[%s index] numFiles=%d numPages=%d Duration=%s%s}",
-		s, p.numFiles, p.numPages, d, b)
+	return fmt.Sprintf("PdfIndex{numFiles=%d numPages=%d Duration=%s%s}",
+		p.numFiles, p.numPages, d, b)
 }
 
 // Duration returns a string describing how long indexing took and where the time was spent.
@@ -217,22 +172,9 @@ func (p PdfIndex) NumFiles() int {
 	return p.numFiles
 }
 
+// NumPages returns the total number of PDF pages in PdfIndex `p`? !@#$ Is this possible?
 func (p PdfIndex) NumPages() int {
 	return p.numPages
-}
-
-// StorageName returns a descriptive name for index storage mode.
-func (p PdfIndex) StorageName() string {
-	storage := "In-memory"
-	if p.reused {
-		storage = "Reused"
-	} else {
-		storage = "On-disk"
-	}
-	if p.readSeeker {
-		storage += " (ReadSeeker)"
-	}
-	return storage
 }
 
 // ExposeErrors turns off recovery from panics in called libraries.

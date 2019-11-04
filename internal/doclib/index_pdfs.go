@@ -1,15 +1,12 @@
 // Copyright 2019 PaperCut Software International Pty Ltd. All rights reserved.
 
 /*
- * This source file implements the main doclib function IndexPdfReaders().
- * IndexPdfFiles() is a convenience function that opens files and calls IndexPdfReaders().
+ * This source file implements the main doclib function IndexPdfFiles().
  */
 package doclib
 
 import (
 	"fmt"
-	"io"
-	"os"
 	"path/filepath"
 	"time"
 
@@ -20,31 +17,7 @@ import (
 // continueOnFailure tells us whether to continue indexing PDF files after errors have occurred.
 const continueOnFailure = true
 
-// IndexPdfFilesUsingReaders creates a bleve+BlevePdf index for `pathList`.
-// If `persistDir` is not empty, the index is written to this directory.
-// If `forceCreate` is true and `persistDir` is not empty, a new directory is always created.
-// then the bleve index will be appended to.
-// `report` is a supplied function that is called to report progress.
-// NOTE: This is for testing only. It doesn't make sense to access IndexPdfFilesOrReaders() with a
-//      list of opened files as this can exhaust available file handles.
-func IndexPdfFilesUsingReaders(pathList []string, persistDir string, forceCreate bool,
-	report func(string)) (*BlevePdf, bleve.Index, int, int, time.Duration, time.Duration, error) {
-	var rsList []io.ReadSeeker
-	for _, inPath := range pathList {
-		rs, err := os.Open(inPath)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Opened %d files\n", len(rsList))
-			break
-		}
-		defer rs.Close()
-		rsList = append(rsList, rs)
-	}
-	return IndexPdfFilesOrReaders(pathList, rsList, persistDir, forceCreate, report)
-}
-
-// IndexPdfFilesOrReaders returns a BlevePdf and a bleve.Index over
-//   the PDF contents referenced by the io.ReaderSeeker's in `rsList` if `rsList` is not empty, or
-//   the PDF filenames in `pathList` if `rsList` is not empty.
+// IndexPdfFiles returns a BlevePdf and a bleve.Index over the PDFs in `pathList`.
 // The index is stored on disk in `persistDir`.
 // `report` is a supplied function that is called to report progress.
 // Returns: (blevePdf, index, numFiles, totalPages, dtPdf, dtBleve, err) where
@@ -56,15 +29,10 @@ func IndexPdfFilesUsingReaders(pathList []string, persistDir string, forceCreate
 //   dtBleve: number of seconds spent building index
 //   err: error, if one occurred
 //
-// NOTE: If you have access to your PDF files then use `pathList` and set `rsList` to nil as a long
-//     list of file handles may exhaust system resources.
 // !@#$ Parallelize this
-func IndexPdfFilesOrReaders(pathList []string, rsList []io.ReadSeeker, persistDir string,
-	forceCreate bool, report func(string)) (*BlevePdf, bleve.Index,
-	int, int, time.Duration, time.Duration, error) {
-	useReaders := len(rsList) > 0
-	common.Log.Debug("Indexing %d PDF files. useReaders=%t forceCreate=%t",
-		len(pathList), useReaders, forceCreate)
+func IndexPdfFiles(pathList []string, persistDir string, forceCreate bool, report func(string)) (
+	*BlevePdf, bleve.Index, int, int, time.Duration, time.Duration, error) {
+	common.Log.Debug("Indexing %d PDF files. forceCreate=%t", len(pathList), forceCreate)
 	var dtPdf, dtBleve, dtP, dtB time.Duration
 
 	// !@#$
@@ -102,10 +70,6 @@ func IndexPdfFilesOrReaders(pathList []string, rsList []io.ReadSeeker, persistDi
 	t00 := time.Now()
 	// Add the pages of all the PDFs in `pathList` to `index`.
 	for i, inPath := range pathList {
-		readerOnly := ""
-		if useReaders {
-			readerOnly = " (readerOnly)"
-		}
 		blevePdf.check()
 		var err error
 		t0 := time.Now()
@@ -113,19 +77,10 @@ func IndexPdfFilesOrReaders(pathList []string, rsList []io.ReadSeeker, persistDi
 		if err != nil {
 			return nil, nil, 0, 0, dtPdf, dtBleve, err
 		}
-		if useReaders {
-			blevePdf.check()
-			rs := rsList[i]
-			dtP, dtB, err = blevePdf.indexDocPagesLocReader(index, inPath, rs)
-			dtPdf += dtP
-			dtBleve += dtB
-			fmt.Fprintf(os.Stderr, "***1 %d: (%.3f %.3f) (%.3f %.3f)\n", i,
-				dtPdf.Seconds(), dtP.Seconds(), dtBleve.Seconds(), dtB.Seconds())
-		} else {
-			dtP, dtB, err = blevePdf.indexDocPagesLocFile(index, inPath)
-			dtPdf += dtP
-			dtBleve += dtB
-		}
+		dtP, dtB, err = blevePdf.indexDocPagesLoc(index, inPath)
+		dtPdf += dtP
+		dtBleve += dtB
+
 		dt := time.Since(t0)
 		dtTotal := time.Since(t00)
 		blevePdf.check()
@@ -145,11 +100,11 @@ func IndexPdfFilesOrReaders(pathList []string, rsList []io.ReadSeeker, persistDi
 		totalPages := int(docCount)
 		numFiles++
 		if report != nil {
-			report(fmt.Sprintf("%3d (%3d) of %d: %3d pages %3.1f sec (total: %3d pages %3.1fsec) %q%s",
+			report(fmt.Sprintf("%3d (%3d) of %d: %3d pages %3.1f sec (total: %3d pages %3.1fsec) %q",
 				i+1, numFiles, len(pathList),
 				docPages, dt.Seconds(),
 				totalPages, dtTotal.Seconds(),
-				inPath, readerOnly))
+				inPath))
 		}
 	}
 

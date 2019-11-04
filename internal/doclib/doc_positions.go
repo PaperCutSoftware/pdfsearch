@@ -49,22 +49,6 @@ type pagePartition struct {
 	PageNum uint32 // PDF page number.
 }
 
-// Equals returns true if `docPos` contains the same information as `e`.
-func (docPos *DocPositions) Equals(e *DocPositions) bool {
-	if len(docPos.pagePositions) != len(e.pagePositions) {
-		common.Log.Error("DocPositions.Equal.pagePositions: %d %d", len(docPos.pagePositions), len(e.pagePositions))
-		return false
-	}
-	for i, dp := range docPos.pagePositions {
-		ep, ok := e.pagePositions[i]
-		if !ok || !dp.Equals(ep) {
-			common.Log.Error("DocPositions.Equal.pagePositions[%d]: %t %d %d", i, ok, dp, ep)
-			return false
-		}
-	}
-	return true
-}
-
 // String returns a human readable string describing `docPos`.
 func (docPos DocPositions) String() string {
 	var sb strings.Builder

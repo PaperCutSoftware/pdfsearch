@@ -1,15 +1,10 @@
 // Copyright 2019 PaperCut Software International Pty Ltd. All rights reserved.
 
-/*
- *  This source implements the main function IndexPdfReaders().
- * IndexPdfFiles() is a convenience function that opens files and calls IndexPdfReaders().
- */
 package doclib
 
 import (
 	"encoding/json"
 	"fmt"
-	"io"
 	"io/ioutil"
 
 	"github.com/papercutsoftware/pdfsearch/internal/utils"
@@ -53,17 +48,8 @@ func (fd fileDesc) String() string {
 	return fmt.Sprintf("{fileDesc: %#q %.2f MB %q}", fd.Hash, fd.SizeMB, fd.InPath)
 }
 
-// createFileDesc returns the fileDesc for a file referenced by `rs` if `rs` is not nil, or
-// by the file on disk with path `inPath` if `rs` is nil.
-func createFileDesc(inPath string, rs io.ReadSeeker) (fileDesc, error) {
-	if rs != nil {
-		size, hash, err := utils.ReaderSizeHash(rs)
-		return fileDesc{
-			InPath: inPath,
-			Hash:   hash,
-			SizeMB: float64(size) / 1024.0 / 1024.0,
-		}, err
-	}
+// createFileDesc returns the fileDesc for PDF `inPath`.
+func createFileDesc(inPath string) (fileDesc, error) {
 	hash, err := utils.FileHash(inPath)
 	if err != nil {
 		return fileDesc{}, err

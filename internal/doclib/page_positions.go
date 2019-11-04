@@ -22,20 +22,6 @@ type PagePositions struct {
 	offsetBBoxes []serial.OffsetBBox
 }
 
-// Equals returns true if `ppos` contains the same information as `epl`.
-func (ppos PagePositions) Equals(epl PagePositions) bool {
-	if len(ppos.offsetBBoxes) != len(epl.offsetBBoxes) {
-		return false
-	}
-	for i, dloc := range ppos.offsetBBoxes {
-		eloc := epl.offsetBBoxes[i]
-		if !dloc.Equals(eloc) {
-			return false
-		}
-	}
-	return true
-}
-
 // String returns a string describing PagePositions `ppos`.
 func (ppos PagePositions) String() string {
 	return fmt.Sprintf("{PagePositions: %d}", len(ppos.offsetBBoxes))
