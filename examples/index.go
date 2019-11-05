@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime/pprof"
 	"time"
 
 	"github.com/papercutsoftware/pdfsearch"
@@ -19,7 +20,10 @@ const usage = `Usage: go run index.go [OPTIONS] pcng-manual*.pdf
 
 func main() {
 	persistDir := filepath.Join(pdfsearch.DefaultPersistRoot, "my.computer")
+	doCPUProfile := false
 	flag.StringVar(&persistDir, "s", persistDir, "The on-disk index is stored here.")
+	flag.BoolVar(&doCPUProfile, "p", doCPUProfile, "Do Go CPU profiling.")
+	cmd_utils.MakeUsage(usage)
 	cmd_utils.MakeUsage(usage)
 	flag.Parse()
 	pdfsearch.InitLogging()
@@ -40,6 +44,23 @@ func main() {
 	if len(pathList) < 1 {
 		fmt.Fprintf(os.Stderr, "No files matching %q.\n", flag.Args())
 		os.Exit(1)
+	}
+
+	if doCPUProfile {
+		profilePath := "cpu.index.prof"
+		fmt.Printf("Profiling to %s\n", profilePath)
+		f, err := os.Create(profilePath)
+		if err != nil {
+			fmt.Printf("Error: %v\n", err)
+			os.Exit(1)
+		}
+		defer f.Close()
+		err = pprof.StartCPUProfile(f)
+		if err != nil {
+			fmt.Printf("Error: %v\n", err)
+			os.Exit(1)
+		}
+		defer pprof.StopCPUProfile()
 	}
 
 	// Run the tests.
