@@ -18,7 +18,8 @@ import (
 )
 
 // PatternsToPaths returns a list of files matching the patterns in `patternList`.
-// If `sortSize` is true, the returned list is sorted by ascending size.
+// The returned list is sorted by ascending size if `sortSize` is true or alphabetically if it is
+// not.
 func PatternsToPaths(patternList []string, sortSize bool) ([]string, error) {
 	var pathList []string
 	common.Log.Debug("patternList=%d", len(patternList))
@@ -49,6 +50,8 @@ func PatternsToPaths(patternList []string, sortSize bool) ([]string, error) {
 			common.Log.Error("PatternsToPaths: SortFileSize failed. err=%v", err)
 			return pathList, err
 		}
+	} else {
+		sort.Strings(pathList)
 	}
 	return pathList, nil
 }
@@ -164,7 +167,7 @@ func SortFileSize(pathList []string, minSize, maxSize int64) ([]string, error) {
 		fdList[i].FileInfo = fi
 	}
 
-	sort.SliceStable(fdList, func(i, j int) bool {
+	sort.Slice(fdList, func(i, j int) bool {
 		si, sj := fdList[i].Size(), fdList[j].Size()
 		if si != sj {
 			return si < sj

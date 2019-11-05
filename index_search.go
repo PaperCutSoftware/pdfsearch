@@ -62,6 +62,7 @@ const (
 // The index is stored on disk in `persistDir`.
 // `report` is a supplied function that is called to report progress.
 func IndexPdfFiles(pathList []string, persistDir string, report func(string)) (PdfIndex, error) {
+	t0 := time.Now()
 	_, bleveIdx, numFiles, numPages, dtPdf, dtBleve, err := doclib.IndexPdfFiles(pathList,
 		persistDir, true, report)
 	if err != nil {
@@ -70,10 +71,12 @@ func IndexPdfFiles(pathList []string, persistDir string, report func(string)) (P
 	if bleveIdx != nil {
 		bleveIdx.Close()
 	}
+	dt := time.Since(t0)
 	return PdfIndex{
 		persistDir: persistDir,
 		numFiles:   numFiles,
 		numPages:   numPages,
+		dt:         dt,
 		dtPdf:      dtPdf,
 		dtBleve:    dtBleve,
 	}, nil
@@ -152,6 +155,7 @@ type PdfIndex struct {
 	blevePdf   *doclib.BlevePdf // Mapping between the PDFs and the bleve index.
 	numFiles   int              // Number of PDFs indexes.
 	numPages   int              // Total number of PDF pages indexed.
+	dt         time.Duration    // Total indexing time.
 	dtPdf      time.Duration    // The time it took to extract text from PDFs.
 	dtBleve    time.Duration    // The time it tool to build the bleve index.
 	reused     bool             // Did on-disk index exist before we ran? Helpful for debugging.
@@ -171,8 +175,7 @@ func (p PdfIndex) String() string {
 // Duration returns a string describing how long indexing took and where the time was spent.
 func (p PdfIndex) Duration() string {
 	return fmt.Sprintf("%.3f sec(%.3f PDF, %.3f bleve)",
-		p.dtPdf.Seconds()+p.dtBleve.Seconds(),
-		p.dtPdf.Seconds(), p.dtBleve.Seconds())
+		p.dt.Seconds(), p.dtPdf.Seconds(), p.dtBleve.Seconds())
 }
 
 func (p PdfIndex) NumFiles() int {

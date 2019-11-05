@@ -25,24 +25,29 @@ type IDText struct {
 	Text string
 }
 
-// indexDocPagesLoc adds the text of all the pages in PDF `inPath` to bleve index `index`.
-func (blevePdf *BlevePdf) indexDocPagesLoc(index bleve.Index, inPath string) (
+// indexDocPagesLoc adds the text of all the pages in the PDF `fd.InPath` to `blevePdf` and to bleve
+// index `index`.
+// writeDocContents updates blevePdf with `fd` which describes a PDF on disk and `docContents`, the
+// document contents of the PDF`fd.InPath`.
+func (blevePdf *BlevePdf) indexDocPagesLoc(index bleve.Index, fd fileDesc, docContents []pageContents) (
 	dtPdf, dtBleve time.Duration, err error) {
 	defer blevePdf.check()
 
 	t0 := time.Now()
+
 	// Update blevePdf, the PDF <-> bleve mapping.
-	docPages, err := blevePdf.extractDocPagePositions(inPath)
+	docPages, err := blevePdf.writeDocContents(fd, docContents)
 	if err != nil {
-		common.Log.Error("indexDocPagesLoc: Couldn't extract pages from %q err=%v", inPath, err)
+		common.Log.Error("indexDocPagesLoc: Couldn't add doc contents to blevePdf %q err=%v",
+			fd.InPath, err)
 		return dtPdf, dtBleve, err
 	}
 	dtPdf = time.Since(t0)
-	common.Log.Debug("indexDocPagesLoc: inPath=%q docPages=%d", inPath, len(docPages))
+	common.Log.Debug("indexDocPagesLoc: inPath=%q docPages=%d", fd.InPath, len(docPages))
 
 	t0 = time.Now()
+	// Prepare `batch` for the bleve index update.
 	batch := index.NewBatch()
-	// Update `batch`.
 	for i, dp := range docPages {
 		// Don't weigh down the bleve index with the text bounding boxes, just give it the bare
 		// mininum it needs: an id that encodes the document number and page number; and text.
@@ -123,7 +128,7 @@ type BlevePdf struct {
 	fdList []fileDesc // List of fileDescs of PDFs the indexed data was extracted from.
 	// Should these be disk access functions? !@#$
 	hashDoc    map[string]*DocPositions // {file hash: DocPositions}
-	indexHash  map[uint64]string        // Reverse map of hashDo. !@#$ Needed for persistent case?
+	indexHash  map[uint64]string        // Reverse map of hashDoc. !@#$ Needed for persistent case?
 	updateTime time.Time                // Time of last flush()
 }
 
@@ -241,46 +246,28 @@ func openBlevePdf(root string, forceCreate bool) (*BlevePdf, error) {
 	return &blevePdf, nil
 }
 
-// extractDocPagePositions extracts the text of the PDF `inPath`.
-// It returns the text as a DocPageText per page.
-// The []DocPageText refer to DocPositions which are stored in blevePdf.hashDoc which is updated in
-// this function. What? !@#$
-// !@#$ Move to a separate go routine?
-func (blevePdf *BlevePdf) extractDocPagePositions(inPath string) ([]DocPageText, error) {
-	fd, err := createFileDesc(inPath)
-	if err != nil {
-		return nil, err
-	}
-
-	// Compute the document contents/
-	docContents, err := extractDocContents(fd)
-	if err != nil {
-		return nil, err
-	}
-
-	// Update blevePdf with the document contents.
-	defer blevePdf.check()
-	docPos, err := blevePdf.createDocPositions(fd)
-	if err != nil {
-		return nil, err
-	}
-	docPages, err := blevePdf.addDocContents(docContents, docPos)
-	if err != nil {
-		//  This should delete the document directory from disk.
-		if err2 := blevePdf.deleteDocPositions(docPos); err2 != nil {
-			common.Log.Error("extractDocPagePositions. Could not delete docPos err=%v", err2)
-		}
-		blevePdf.remove(fd.Hash)
-		return nil, err
-	}
-	return docPages, err
-}
-
 // pageContents are the result of text extraction on a PDF page
 type pageContents struct {
-	pageNum uint32 // 1-offset
-	ppos    PagePositions
-	text    string
+	pageNum uint32        // (1-offset) PDF page number.
+	ppos    PagePositions // Positions of PDF text fragments on page.
+	text    string        // Extracted page text.
+}
+
+// extractDocPagePositions computes a fileDesc for the PDF `inPath` and extracts the text and text
+// positions for all the pages in the PDF. It returns this as a pageContents per page.
+func extractDocPagePositions(inPath string) (fileDesc, []pageContents, error) {
+	fd, err := createFileDesc(inPath)
+	if err != nil {
+		panic(err) // !@#$ should never happen
+		return fileDesc{}, nil, err
+	}
+
+	// Compute the document contents.
+	docContents, err := extractDocContents(fd)
+	if err != nil {
+		return fileDesc{}, nil, err
+	}
+	return fd, docContents, nil
 }
 
 // extractDocContents extracts page text and positions from the PDF described by `fd`.
@@ -325,6 +312,30 @@ func extractDocContents(fd fileDesc) ([]pageContents, error) {
 	})
 
 	return docContents, err
+}
+
+// writeDocContents updates blevePdf with `fd` which describes a PDF on disk and `docContents`, the
+// document contents of the PDF `fd.InPath`.
+// It returns the docContents as a []DocPageText. !@#$ Why?
+// This function is supposed to be atomic. If writing the document contents to disk fails at any
+// stage, all references to the document are removed. !@#$ Remove from bleve too.
+func (blevePdf *BlevePdf) writeDocContents(fd fileDesc, docContents []pageContents) ([]DocPageText,
+	error) {
+	defer blevePdf.check()
+	docPos, err := blevePdf.createDocPositions(fd)
+	if err != nil {
+		return nil, err
+	}
+	docPages, err := blevePdf.addDocContents(docContents, docPos)
+	if err != nil {
+		//  This should delete the document directory from disk.
+		if err2 := blevePdf.deleteDocPositions(docPos); err2 != nil {
+			common.Log.Error("writeDocContents. Could not delete docPos err=%v", err2)
+		}
+		blevePdf.remove(fd.Hash)
+		return nil, err
+	}
+	return docPages, err
 }
 
 // addDocContents writes `docContents` to the files in `docPos`.
@@ -459,7 +470,6 @@ func (blevePdf *BlevePdf) docPageText(docIdx uint64, pageIdx uint32) (string, er
 // to read a page.
 func (blevePdf *BlevePdf) docPagePositions(docIdx uint64, pageIdx uint32) (
 	string, uint32, PagePositions, error) {
-
 	docPos, err := blevePdf.openDocPosition(docIdx)
 	if err != nil {
 		return "", 0, PagePositions{}, err

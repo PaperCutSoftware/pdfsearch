@@ -25,7 +25,7 @@ import (
 type DocPositions struct {
 	inPath        string                   // Path of input PDF.
 	docIdx        uint64                   // Index into blevePdf.fileList.
-	pagePositions map[uint32]PagePositions // {pageNum: locations of text on page}
+	pagePositions map[uint32]PagePositions // {(1-offset) PDF pageNum: locations of text on page}
 	*docPersist                            // Optional extra fields for on-disk indexes.
 }
 
@@ -45,7 +45,7 @@ type pagePartition struct {
 	Offset  uint32 // Offset in the data file for the PagePositions for a page.
 	Size    uint32 // Size of the PagePositions in the data file.
 	Check   uint32 // CRC checksum for the PagePositions data.
-	PageNum uint32 // PDF page number.
+	PageNum uint32 // (1-offset) PDF page number.
 }
 
 // String returns a human readable string describing `docPos`.
@@ -104,7 +104,7 @@ func (docPos *DocPositions) openDoc() error {
 	return nil
 }
 
-// Save saves `docPos` to disk if it peristent.
+// Save saves `docPos` to disk.
 func (docPos *DocPositions) Save() error {
 	b, err := json.MarshalIndent(docPos.pagePartitions, "", "\t")
 	if err != nil {
@@ -159,7 +159,7 @@ func (docPos *DocPositions) addDocPagePersist(pageNum uint32, ppos PagePositions
 	docPos.pagePartitions = append(docPos.pagePartitions, partition)
 	pageIdx := uint32(len(docPos.pagePartitions) - 1)
 
-	// !@#$ Remove. Maybe record line numbers
+	// !@#$ Remove. Maybe record line numbers.
 	filename := docPos.textPath(pageIdx)
 	err = ioutil.WriteFile(filename, []byte(text), 0644)
 	if err != nil {

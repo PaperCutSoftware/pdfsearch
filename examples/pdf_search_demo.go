@@ -176,11 +176,11 @@ func showResults(pathList []string, pdfIndex pdfsearch.PdfIndex, results pdfsear
 
 	dtSearch := dt - dtIndex
 
-	fmt.Fprintf(os.Stderr, "Duration=%.1f sec (%.3f index + %.3f search) (%.1f pages/min) "+
+	fmt.Fprintf(os.Stderr, "Duration=%.1f sec (%.3f index + %.3f search) (%.1f pages/sec) "+
 		"%d pages in %d files %+v\n"+
 		"Index duration=%s\n"+
 		"Marked up search results in %q\n",
-		dt.Seconds(), dtIndex.Seconds(), dtSearch.Seconds(), pagesSec*60.0,
+		dt.Seconds(), dtIndex.Seconds(), dtSearch.Seconds(), pagesSec,
 		numPages, len(pathList), showList,
 		pdfIndex.Duration(),
 		outPath)

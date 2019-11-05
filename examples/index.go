@@ -29,8 +29,10 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Read the files to index into `pathList`.
-	pathList, err := cmd_utils.PatternsToPaths(flag.Args(), true)
+	// Read the files to index into `pathList`. NOTE: Sorting the list alphabetically is intended
+	// to randomize the list with respect to file size, number of pages etc which should help with
+	// load balancing the PDF processing go routines.
+	pathList, err := cmd_utils.PatternsToPaths(flag.Args(), false)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "PatternsToPaths failed. args=%#q err=%v\n", flag.Args(), err)
 		os.Exit(1)
@@ -84,8 +86,8 @@ func showIndex(pathList []string, pdfIndex pdfsearch.PdfIndex, dt time.Duration)
 	if dt.Seconds() >= 0.01 {
 		pagesSec = float64(numPages) / dt.Seconds()
 	}
-	fmt.Fprintf(os.Stderr, "%d pages in %d files (%.1f pages/min)\n",
-		numPages, numFiles, pagesSec*60.0)
+	fmt.Fprintf(os.Stderr, "%d pages in %d files (%.1f pages/sec)\n",
+		numPages, numFiles, pagesSec)
 	fmt.Fprintf(os.Stderr, "%s\n", pdfIndex)
 	return nil
 }

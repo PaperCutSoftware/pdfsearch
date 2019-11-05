@@ -50,17 +50,19 @@ func (fd fileDesc) String() string {
 
 // createFileDesc returns the fileDesc for PDF `inPath`.
 func createFileDesc(inPath string) (fileDesc, error) {
-	hash, err := utils.FileHash(inPath)
-	if err != nil {
-		return fileDesc{}, err
-	}
+	fd := fileDesc{InPath: inPath}
+
 	size, err := utils.FileSize(inPath)
 	if err != nil {
-		return fileDesc{}, err
+		return fd, err
 	}
-	return fileDesc{
-		InPath: inPath,
-		Hash:   hash,
-		SizeMB: float64(size) / 1024.0 / 1024.0,
-	}, nil
+	fd.SizeMB = float64(size) / 1024.0 / 1024.0
+
+	hash, err := utils.FileHash(inPath)
+	if err != nil {
+		return fd, err
+	}
+	fd.Hash = hash
+
+	return fd, nil
 }
