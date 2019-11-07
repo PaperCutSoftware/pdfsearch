@@ -12,7 +12,6 @@ import (
 
 	"github.com/papercutsoftware/pdfsearch"
 	"github.com/papercutsoftware/pdfsearch/examples/cmd_utils"
-	"github.com/papercutsoftware/pdfsearch/internal/utils"
 )
 
 const usage = `Usage: go run index.go [OPTIONS] pcng-manual*.pdf
@@ -46,7 +45,7 @@ func main() {
 		fmt.Fprintf(os.Stderr, "No files matching %q.\n", flag.Args())
 		os.Exit(1)
 	}
-	pathList = partShuffle(pathList)
+	pathList = cmd_utils.PartShuffle(pathList)
 
 	if doCPUProfile {
 		profilePath := "cpu.index.prof"
@@ -113,59 +112,6 @@ func showIndex(pathList []string, pdfIndex pdfsearch.PdfIndex, dt time.Duration)
 		numPages, numFiles, dt.Seconds(), pagesSec)
 	fmt.Fprintf(os.Stderr, "%s\n", pdfIndex)
 	return nil
-}
-
-// partShuffle shuffles part of `pathList` while maintaing some order by file size. The partial file
-// size ordering is to keep large PDFs away from the end of `pathList` so one worker thread doesn't
-// get a big slow file when the other work threads are done.
-func partShuffle(pathList []string) []string {
-	pathList, _ = cmd_utils.SortFileSize(pathList, -1, -1)
-
-	// NOTE: Shuffle is intended to randomize the list with respect to file size, number of pages
-	// etc which should help with load balancing the PDF processing go routines.
-	// pathList = cmd_utils.Shuffle(pathList)
-	// Keep the small files until last
-	if len(pathList) > 100 {
-		n := len(pathList) - 100
-		p1 := pathList[:n]
-		p2 := pathList[n:]
-		p1 = cmd_utils.Shuffle(p1)
-		pathList = append(p1, p2...)
-	}
-
-	var big []string
-	var medium []string
-	var small []string
-	for _, path := range pathList {
-		size, _ := utils.FileSizeMB(path)
-		if size > 10.0 {
-			big = append(big, path)
-		} else if size < 1.0 {
-			small = append(small, path)
-		} else {
-			medium = append(medium, path)
-		}
-	}
-	pathList = append(big, medium...)
-	pathList = append(pathList, small...)
-	if len(pathList) > 100 {
-		n := 100
-		if n < 4*len(big) {
-			n = 4 * len(big)
-		}
-		if n > len(pathList)/5 {
-			n = len(pathList) / 5
-		}
-		// panic(fmt.Errorf("big=%d(%d) pathList=%d(%d) n=%d",
-		// 	len(big), 4*len(big),
-		// 	len(pathList), len(pathList)/4,
-		// 	n))
-		p1 := pathList[:n]
-		p2 := pathList[n:]
-		p1 = cmd_utils.Shuffle(p1)
-		pathList = append(p1, p2...)
-	}
-	return pathList
 }
 
 // `report` is called  by IndexPdfMem to report progress.

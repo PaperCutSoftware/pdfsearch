@@ -48,6 +48,59 @@ func PatternsToPaths(patternList []string) ([]string, error) {
 	return pathList, nil
 }
 
+// partShuffle shuffles part of `pathList` while maintanining some order by file size. The partial file
+// size ordering is to keep large PDFs away from the end of `pathList` so one worker thread doesn't
+// get a big slow file when the other work threads are done.
+func PartShuffle(pathList []string) []string {
+	pathList, _ = SortFileSize(pathList, -1, -1)
+
+	// NOTE: Shuffle is intended to randomize the list with respect to file size, number of pages
+	// etc which should help with load balancing the PDF processing go routines.
+	// pathList = cmd_utils.Shuffle(pathList)
+	// Keep the small files until last
+	if len(pathList) > 100 {
+		n := len(pathList) - 100
+		p1 := pathList[:n]
+		p2 := pathList[n:]
+		p1 = Shuffle(p1)
+		pathList = append(p1, p2...)
+	}
+
+	var big []string
+	var medium []string
+	var small []string
+	for _, path := range pathList {
+		size, _ := FileSizeMB(path)
+		if size > 10.0 {
+			big = append(big, path)
+		} else if size < 1.0 {
+			small = append(small, path)
+		} else {
+			medium = append(medium, path)
+		}
+	}
+	pathList = append(big, medium...)
+	pathList = append(pathList, small...)
+	if len(pathList) > 100 {
+		n := 100
+		if n < 4*len(big) {
+			n = 4 * len(big)
+		}
+		if n > len(pathList)/5 {
+			n = len(pathList) / 5
+		}
+		// panic(fmt.Errorf("big=%d(%d) pathList=%d(%d) n=%d",
+		// 	len(big), 4*len(big),
+		// 	len(pathList), len(pathList)/4,
+		// 	n))
+		p1 := pathList[:n]
+		p2 := pathList[n:]
+		p1 = Shuffle(p1)
+		pathList = append(p1, p2...)
+	}
+	return pathList
+}
+
 // Shuffle returns a deterministically shuffled copy of `pathList`. The shuffled order should be
 // uncorrelated with the alphabetically sorted `pathList`.
 // This intended lack of correlation relies on the FNV-1a hash of a string being uncorrelated with
@@ -190,7 +243,6 @@ func ExpandUser(filename string) string {
 // If `minSize` >= 0 then only files of this size or larger are returned.
 // If `maxSize` >= 0 then only files of this size or smaller are returned.
 func SortFileSize(pathList []string, minSize, maxSize int64) ([]string, error) {
-
 	sort.Slice(pathList, func(i, j int) bool {
 		pi, pj := pathList[i], pathList[j]
 		si, _ := FileSize(pi)
@@ -240,6 +292,12 @@ func FileSize(filename string) (int64, error) {
 		return 0, err
 	}
 	return fi.Size(), nil
+}
+
+// FileSizeMB returns the size of file `filename` in megabytes.
+func FileSizeMB(filename string) (float64, error) {
+	size, err := FileSize(filename)
+	return float64(size) / 1024.0 / 1024.0, err
 }
 
 // FileHashSize is the maximum number of hexidecimal digits returned for file hashes.

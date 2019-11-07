@@ -60,7 +60,7 @@ func main() {
 	var err error
 	var pathList []string
 	if !reuse {
-		pathList, err = cmd_utils.PatternsToPaths([]string{pathPattern}, true)
+		pathList, err = cmd_utils.PatternsToPaths([]string{pathPattern})
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "PatternsToPaths failed. args=%#q err=%v\n", flag.Args(), err)
 			os.Exit(1)
@@ -70,6 +70,7 @@ func main() {
 			os.Exit(1)
 		}
 	}
+	pathList = cmd_utils.PartShuffle(pathList)
 
 	// Run the tests.
 	if err := runIndexSearchShow(pathList, term, persistDir, reuse, nameOnly, maxResults, outPath); err != nil {
