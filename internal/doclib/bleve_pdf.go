@@ -42,6 +42,9 @@ func (blevePdf *BlevePdf) indexDocPagesLoc(index bleve.Index, fd fileDesc, docCo
 			fd.InPath, err)
 		return dtPdf, dtBleve, err
 	}
+	if len(docPages) == 0 {
+		panic("no pages")
+	}
 	dtPdf = time.Since(t0)
 	common.Log.Debug("indexDocPagesLoc: inPath=%q docPages=%d", fd.InPath, len(docPages))
 
@@ -58,6 +61,14 @@ func (blevePdf *BlevePdf) indexDocPagesLoc(index bleve.Index, fd fileDesc, docCo
 		if err != nil {
 			return dtPdf, dtBleve, err
 		}
+		if batch.Size() >= 100 {
+			// Update `index`, the bleve index.
+			err = index.Batch(batch)
+			if err != nil {
+				return dtPdf, dtBleve, err
+			}
+			batch = index.NewBatch()
+		}
 		dt := time.Since(t0)
 		if i%100 == 0 {
 			common.Log.Debug("\tIndexed %2d of %d pages in %5.1f sec (%.2f sec/page)",
@@ -65,11 +76,13 @@ func (blevePdf *BlevePdf) indexDocPagesLoc(index bleve.Index, fd fileDesc, docCo
 			common.Log.Debug("\tid=%q text=%d", id, len(idText.Text))
 		}
 	}
-	// Update `index`, the bleve index.
-	err = index.Batch(batch)
-	if err != nil {
-		return dtPdf, dtBleve, err
+	if batch.Size() > 0 {
+		err = index.Batch(batch)
+		if err != nil {
+			return dtPdf, dtBleve, err
+		}
 	}
+
 	dtBleve = time.Since(t0)
 	dt := dtPdf + dtBleve
 	common.Log.Debug("\tIndexed %d pages in %.1f (Pdf) + %.1f (bleve) = %.1f sec (%.3f sec/page)\n",
@@ -330,7 +343,7 @@ func (blevePdf *BlevePdf) writeDocContents(fd fileDesc, docContents []pageConten
 	if err != nil {
 		//  This should delete the document directory from disk.
 		if err2 := blevePdf.deleteDocPositions(docPos); err2 != nil {
-			common.Log.Error("writeDocContents. Could not delete docPos err=%v", err2)
+			common.Log.Error("writeDocContents. Couldn't delete docPos err=%v", err2)
 		}
 		blevePdf.remove(fd.Hash)
 		return nil, err
@@ -512,15 +525,23 @@ func (blevePdf *BlevePdf) createDocPositions(fd fileDesc) (*DocPositions, error)
 func (blevePdf *BlevePdf) deleteDocPositions(docPos *DocPositions) error {
 	common.Log.Info("deleteDocPositions:\n\tblevePdf.pdfXrefDir=%q\n\tdataPath=%q\n\ttextDir=%q",
 		blevePdf.pdfXrefDir(), docPos.dataPath, docPos.textDir)
-	err := os.Remove(docPos.dataPath)
-	if err != nil {
-		return err
+	if utils.Exists(docPos.dataPath) {
+		if err := os.Remove(docPos.dataPath); err != nil {
+			return err
+		}
 	}
-	err = os.Remove(docPos.partitionsPath)
-	if err != nil {
-		return err
+	if utils.Exists(docPos.partitionsPath) {
+		// partitionsPath is written after this function is called, so this isn't necessary right now
+		if err := os.Remove(docPos.partitionsPath); err != nil {
+			return err
+		}
 	}
-	return os.RemoveAll(docPos.textDir)
+	if utils.Exists(docPos.textDir) {
+		if err := os.RemoveAll(docPos.textDir); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // openDocPosition opens a DocPositions for reading.

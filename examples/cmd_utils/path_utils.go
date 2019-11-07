@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"hash/fnv"
 	"io/ioutil"
 	"os"
 	"os/user"
@@ -18,9 +19,8 @@ import (
 )
 
 // PatternsToPaths returns a list of files matching the patterns in `patternList`.
-// The returned list is sorted by ascending size if `sortSize` is true or alphabetically if it is
-// not.
-func PatternsToPaths(patternList []string, sortSize bool) ([]string, error) {
+// The returned list is sorted alphabetically .
+func PatternsToPaths(patternList []string) ([]string, error) {
 	var pathList []string
 	common.Log.Debug("patternList=%d", len(patternList))
 	for i, pattern := range patternList {
@@ -44,16 +44,50 @@ func PatternsToPaths(patternList []string, sortSize bool) ([]string, error) {
 		}
 	}
 	pathList = StringUniques(pathList)
-	if sortSize {
-		pathList, err := SortFileSize(pathList, -1, -1)
-		if err != nil {
-			common.Log.Error("PatternsToPaths: SortFileSize failed. err=%v", err)
-			return pathList, err
-		}
-	} else {
-		sort.Strings(pathList)
-	}
+	sort.Strings(pathList)
 	return pathList, nil
+}
+
+// Shuffle returns a deterministically shuffled copy of `pathList`. The shuffled order should be
+// uncorrelated with the alphabetically sorted `pathList`.
+// This intended lack of correlation relies on the FNV-1a hash of a string being uncorrelated with
+// the string.
+func Shuffle(pathList []string) []string {
+	pathHash := map[string]uint64{}
+	for _, path := range pathList {
+		pathHash[path] = hash(path)
+	}
+	if len(pathHash) < len(pathList) {
+		common.Log.Info("Shuffle: %d collisions in %d file names", len(pathList)-len(pathHash),
+			len(pathList))
+	}
+	sort.Slice(pathList, func(i, j int) bool {
+		pi, pj := pathList[i], pathList[j]
+		hi, hj := pathHash[pi], pathHash[pj]
+		if hi != hj {
+			return hi < hj
+		}
+		// In the remote chance of a hash collision, we sort by reversed string order.
+		return reverse(pi) < reverse(pj)
+	})
+	return pathList
+}
+
+// hash return the 64 bit FNV-1a hash of `s`.
+// See https://en.wikipedia.org/wiki/Fowler%E2%80%93Noll%E2%80%93Vo_hash_function#FNV-1a_hash
+func hash(s string) uint64 {
+	h := fnv.New64a()
+	h.Write([]byte(s))
+	return h.Sum64()
+}
+
+// reverse returns `s` with the characters reversed.
+func reverse(s string) string {
+	runes := []rune(s)
+	for i, j := 0, len(runes)-1; i < j; i, j = i+1, j-1 {
+		runes[i], runes[j] = runes[j], runes[i]
+	}
+	return string(runes)
 }
 
 // FileFinder is a group of file paths.
@@ -76,7 +110,7 @@ func NewFileFinder(pathList []string) FileFinder {
 // NewFileFinderFromCorpus returns a FileFinder for all files in our main corpus directory.
 func NewFileFinderFromCorpus() (FileFinder, error) {
 	patternList := []string{"~/testdata/**/*.pdf"}
-	pathList, err := PatternsToPaths(patternList, true)
+	pathList, err := PatternsToPaths(patternList)
 	if err != nil {
 		return FileFinder{}, err
 	}
@@ -156,40 +190,33 @@ func ExpandUser(filename string) string {
 // If `minSize` >= 0 then only files of this size or larger are returned.
 // If `maxSize` >= 0 then only files of this size or smaller are returned.
 func SortFileSize(pathList []string, minSize, maxSize int64) ([]string, error) {
-	n := len(pathList)
-	fdList := make([]fileInfo, n)
-	for i, filename := range pathList {
-		fi, err := os.Stat(filename)
-		if err != nil {
-			return []string{}, err
-		}
-		fdList[i].filename = filename
-		fdList[i].FileInfo = fi
-	}
 
-	sort.Slice(fdList, func(i, j int) bool {
-		si, sj := fdList[i].Size(), fdList[j].Size()
+	sort.Slice(pathList, func(i, j int) bool {
+		pi, pj := pathList[i], pathList[j]
+		si, _ := FileSize(pi)
+		sj, _ := FileSize(pj)
 		if si != sj {
-			return si < sj
+			return si > sj
 		}
-		return fdList[i].filename < fdList[j].filename
+		return pi < pj
 	})
 
 	i0 := 0
-	i1 := n
+	i1 := len(pathList)
 	if minSize >= 0 {
-		i0 = sort.Search(len(fdList), func(i int) bool { return fdList[i].Size() >= minSize })
+		i0 = sort.Search(len(pathList), func(i int) bool {
+			size, _ := FileSize(pathList[i])
+			return size >= minSize
+		})
 	}
 	if maxSize >= 0 {
-		i1 = sort.Search(len(fdList), func(i int) bool { return fdList[i].Size() >= maxSize })
+		i1 = sort.Search(len(pathList), func(i int) bool {
+			size, _ := FileSize(pathList[i])
+			return size >= maxSize
+		})
 	}
-	fdList = fdList[i0:i1]
-
-	outList := make([]string, len(fdList))
-	for i, fd := range fdList {
-		outList[i] = fd.filename
-	}
-	return outList, nil
+	pathList = pathList[i0:i1]
+	return pathList, nil
 }
 
 type fileInfo struct {

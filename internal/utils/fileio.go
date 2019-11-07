@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 
 	"github.com/unidoc/unipdf/v3/common"
 )
@@ -61,8 +62,8 @@ func WriteJsonSlice(filename string, vals []string) error {
 	return nil
 }
 
-// ChangePathDir returns `inPath` with its ancestor directory `inDir` replaced with `outDir` and its
-// extension replaced with `outExt`.
+// ChangePathDirExt returns `inPath` with its ancestor directory `inDir` replaced with `outDir` and
+// its extension replaced with `outExt`.
 func ChangePathDirExt(inDir, inPath, outDir, outExt string) (string, error) {
 	outPath, err := ChangePathDir(inDir, inPath, outDir)
 	if err != nil {
@@ -124,5 +125,69 @@ func CopyFile(src, dest string) error {
 	defer to.Close()
 
 	_, err = io.Copy(to, from)
+	return err
+}
+
+var OpenHandles int64
+var MaxOpenHandles int64
+var NumOpens int64
+
+const OpenFilesDelta = 1
+const NumOpensDelta = 1000
+
+func _OsOpenFile(filename string, flag int, perm os.FileMode) (*os.File, error) {
+	f, err := os.OpenFile(filename, flag, perm)
+	atomic.AddInt64(&OpenHandles, 1)
+	atomic.AddInt64(&NumOpens, 1)
+	n := OpenHandles
+	if n >= MaxOpenHandles+OpenFilesDelta {
+		atomic.StoreInt64(&MaxOpenHandles, n)
+		m := MaxOpenHandles
+		common.Log.Info("MaxOpenHandles=%d %q", m, filename)
+	}
+	o := NumOpens
+	if o%NumOpensDelta == NumOpensDelta-1 {
+		common.Log.Info("OpenHandles=%d %q", n, filename)
+	}
+	return f, err
+}
+
+func _OsCreate(filename string) (*os.File, error) {
+	f, err := os.Create(filename)
+	atomic.AddInt64(&OpenHandles, 1)
+	atomic.AddInt64(&NumOpens, 1)
+	n := OpenHandles
+	if n >= MaxOpenHandles+OpenFilesDelta {
+		atomic.StoreInt64(&MaxOpenHandles, n)
+		m := MaxOpenHandles
+		common.Log.Info("MaxOpenHandles=%d %q", m, filename)
+	}
+	o := NumOpens
+	if o%NumOpensDelta == NumOpensDelta-1 {
+		common.Log.Info("OpenHandles=%d %q", n, filename)
+	}
+	return f, err
+}
+
+func _OsOpen(filename string) (*os.File, error) {
+	f, err := os.Open(filename)
+	atomic.AddInt64(&OpenHandles, 1)
+	atomic.AddInt64(&NumOpens, 1)
+	n := OpenHandles
+	if n >= MaxOpenHandles+OpenFilesDelta {
+		atomic.StoreInt64(&MaxOpenHandles, n)
+		m := MaxOpenHandles
+		common.Log.Info("MaxOpenHandles=%d %q", m, filename)
+	}
+	o := NumOpens
+	if o%NumOpensDelta == NumOpensDelta-1 {
+		common.Log.Info("OpenHandles=%d %q", n, filename)
+	}
+	return f, err
+}
+
+func _OsClose(f *os.File) error {
+	err := f.Close()
+	atomic.AddInt64(&OpenHandles, -1)
 	return err
 }

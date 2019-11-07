@@ -7,8 +7,10 @@ package doclib
 
 import (
 	"fmt"
+	"math"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"sync"
 	"time"
 
@@ -30,8 +32,6 @@ const continueOnFailure = true
 //   dtPdf: number of seconds spent building blevePdf
 //   dtBleve: number of seconds spent building index
 //   err: error, if one occurred
-//
-// !@#$ Parallelize this
 func IndexPdfFiles(pathList []string, persistDir string, forceCreate bool, report func(string)) (
 	*BlevePdf, bleve.Index, int, int, time.Duration, time.Duration, error) {
 	common.Log.Debug("Indexing %d PDFs. forceCreate=%t", len(pathList), forceCreate)
@@ -76,14 +76,14 @@ func IndexPdfFiles(pathList []string, persistDir string, forceCreate bool, repor
 	common.Log.Info("numCPU=%d numWorkers=%d", runtime.NumCPU(), numWorkers)
 	wg := &sync.WaitGroup{}
 	wg.Add(numWorkers)
-	pathChan := make(chan string, 100)
+	pathChan := make(chan orderedPath, 100)
 	extractedChan := make(chan extractedDoc, 2*numWorkers)
-	summaries := make([]string, numWorkers)
+	profiles := make([]extractorProfile, numWorkers)
 	for i := 0; i < numWorkers; i++ {
-		go func(i int, summary *string) {
-			extractPDFText(i, pathChan, extractedChan, summary)
+		go func(i int, profile *extractorProfile) {
+			extractPDFText(i, pathChan, extractedChan, profile)
 			wg.Done()
-		}(i, &summaries[i])
+		}(i, &profiles[i])
 	}
 	go func() {
 		// Dispatch all the PDFs
@@ -94,7 +94,8 @@ func IndexPdfFiles(pathList []string, persistDir string, forceCreate bool, repor
 		close(extractedChan)
 	}()
 
-	numFiles := 0
+	fileNum := 0
+	totalFiles := 0
 	docCount00, err := index.DocCount()
 	if err != nil {
 		return nil, nil, 0, 0, dtPdf, dtBleve, err
@@ -103,11 +104,15 @@ func IndexPdfFiles(pathList []string, persistDir string, forceCreate bool, repor
 	// Add the pages of all the PDFs in the text extraction results channel `extractedChan` to
 	// `blevePdf` and `index`.
 	for e := range extractedChan {
+		fileNum++
 		fd, docContents, dtPdf, err := e.fd, e.docContents, e.dt, e.err
 		if err != nil {
 			common.Log.Error("IndexPdfFiles: Couldn't extract pages from %q err=%v", fd.InPath, err)
 			continue //!@#$ should be configurable
 			// return nil, nil, 0, 0, dtPdf, dtBleve, err
+		}
+		if len(docContents) == 0 {
+			continue
 		}
 
 		blevePdf.check()
@@ -136,16 +141,25 @@ func IndexPdfFiles(pathList []string, persistDir string, forceCreate bool, repor
 		}
 		common.Log.Debug("Indexed %q. Total %d pages indexed.", fd.InPath, docCount)
 		docPages := int(docCount - docCount0)
+		if docPages <= 0 {
+			for i, p := range docContents {
+				common.Log.Info("page %d %d---------------------------\n%s", i, len(p.text),
+					truncate(p.text, 100))
+			}
+			err := fmt.Errorf("Didn't add pages to bleve: docCount0=%d docCount=%d docPages=%d docContents=%d",
+				docCount0, docCount, docPages, len(docContents))
+			panic(err)
+		}
 		totalPages := int(docCount)
-		numFiles++
+		totalFiles++
 		totalSec := dtTotal.Seconds()
 		rate := 0.0
 		if totalSec > 0.0 {
 			rate = float64(totalPages) / totalSec
 		}
 		if report != nil {
-			report(fmt.Sprintf("%3d of %d: %3d pages %3.1f sec (total: %3d pages %3.1f sec %3.1f pages/sec) %q",
-				numFiles, len(pathList),
+			report(fmt.Sprintf("%3d (%3d) of %d: %5.1f MB %3d pages %3.1f sec (total: %3d pages %4.1f sec %5.1f pages/sec) %q",
+				fileNum, e.i+1, len(pathList), fd.SizeMB,
 				docPages, dt.Seconds(),
 				totalPages, totalSec, rate,
 				fd.InPath))
@@ -153,46 +167,68 @@ func IndexPdfFiles(pathList []string, persistDir string, forceCreate bool, repor
 	}
 
 	// Write out the worker loads to see how evenly they are spread.
-	for i, summary := range summaries {
-		common.Log.Info("extractPDFText %d: %s", i, summary)
+	for i, profile := range sortedProfiles(profiles) {
+		common.Log.Info("extractPDFText %d: %s", i, profile)
 	}
+	dtPdf = extractionDuration(profiles)
 
 	docCount, err := index.DocCount()
 	if err != nil {
 		return nil, nil, 0, 0, dtPdf, dtBleve, err
 	}
 	totalPages := int(docCount - docCount00)
-	return blevePdf, index, numFiles, totalPages, dtPdf, dtBleve, err
+	return blevePdf, index, totalFiles, totalPages, dtPdf, dtBleve, err
+}
+
+type orderedPath struct {
+	i      int
+	inPath string
 }
 
 // extractedDoc is the result of PDF text extraction.
 type extractedDoc struct {
+	i           int
 	fd          fileDesc
 	docContents []pageContents
 	dt          time.Duration
 	err         error
 }
 
+type extractorProfile struct {
+	numDocs   int
+	numPages  int
+	dtProcess time.Duration
+	dtIdle    time.Duration
+}
+
 // dispatchPDFs dispatches the PDFs in `pathList` to `pathChan`.
-func dispatchPDFs(pathList []string, pathChan chan<- string) {
-	for _, inPath := range pathList {
-		pathChan <- inPath
+func dispatchPDFs(pathList []string, pathChan chan<- orderedPath) {
+	for i, inPath := range pathList {
+		pathChan <- orderedPath{i: i, inPath: inPath}
 	}
 }
 
 // extractPDFText takes PDF paths from `pathChan`, extracts text from them and writes the text
 // extraction results to `extractedChan`. When extractPDFText is done it returns a summary in
 // `summary`.
-func extractPDFText(workerNum int, pathChan <-chan string, extractedChan chan<- extractedDoc,
-	summary *string) {
+func extractPDFText(workerNum int, pathChan <-chan orderedPath, extractedChan chan<- extractedDoc,
+	profile *extractorProfile) {
 	numDocs := 0
 	numPages := 0
 	var processTime time.Duration
-	for inPath := range pathChan {
+	var idleTime time.Duration
+
+	tIdle := time.Now()
+	for op := range pathChan {
+		// dtIdle := time.Since(tIdle)
 		t0 := time.Now()
-		fd, docContents, err := extractDocPagePositions(inPath)
-		dt := time.Since(t0)
+		fd, docContents, err := extractDocPagePositions(op.inPath)
+		t1 := time.Now()
+		// dt := time.Since(t0)
+		dtIdle := t0.Sub(tIdle)
+		dt := t1.Sub(t0)
 		e := extractedDoc{
+			i:           op.i,
 			fd:          fd,
 			docContents: docContents,
 			dt:          dt,
@@ -202,16 +238,54 @@ func extractPDFText(workerNum int, pathChan <-chan string, extractedChan chan<- 
 		numDocs++
 		numPages += len(docContents)
 		processTime += dt
+		idleTime += dtIdle
+		tIdle = time.Now()
 	}
 
-	processSec := processTime.Seconds()
+	*profile = extractorProfile{
+		numDocs:   numDocs,
+		numPages:  numPages,
+		dtProcess: processTime,
+		dtIdle:    idleTime,
+	}
+}
+
+func (p extractorProfile) String() string {
 	docsSec := 0.0
 	pagesSec := 0.0
+	processSec := p.dtProcess.Seconds()
 	if processSec > 0.0 {
-		docsSec = float64(numDocs) / processSec
-		pagesSec = float64(numPages) / processSec
+		docsSec = float64(p.numDocs) / processSec
+		pagesSec = float64(p.numPages) / processSec
 	}
+	return fmt.Sprintf("processed %3d PDFs %4d pages in %5.1f sec [%5.1f sec idle] (%3.1f PDFs/sec %4.1f pages/sec)",
+		p.numDocs, p.numPages, processSec, p.dtIdle.Seconds(), docsSec, pagesSec)
+}
 
-	*summary = fmt.Sprintf("processed %d PDFs %d pages in %.1f sec (%.1f PDFs/sec %.1f pages/sec)",
-		numDocs, numPages, processSec, docsSec, pagesSec)
+func sortedProfiles(profiles []extractorProfile) []extractorProfile {
+	sort.Slice(profiles, func(i, j int) bool {
+		pi, pj := profiles[i], profiles[j]
+		si, sj := pi.dtProcess.Seconds(), pj.dtProcess.Seconds()
+		if math.Abs(si-sj) >= 0.1 {
+			return si > sj
+		}
+		if pi.numPages != pj.numPages {
+			return pi.numPages < pj.numPages
+		}
+		if pi.numDocs != pj.numDocs {
+			return pi.numDocs < pj.numDocs
+		}
+		return i < j
+	})
+	return profiles
+}
+
+func extractionDuration(profiles []extractorProfile) time.Duration {
+	var dtProcess time.Duration
+	for _, p := range profiles {
+		if p.dtProcess > dtProcess {
+			dtProcess = p.dtProcess
+		}
+	}
+	return dtProcess
 }
