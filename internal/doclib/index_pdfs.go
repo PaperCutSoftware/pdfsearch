@@ -20,7 +20,9 @@ import (
 
 // continueOnFailure tells us whether to continue indexing PDFs after errors have occurred.
 const continueOnFailure = true
-const ReopenDelta = 500 // 10 * 1000
+
+// ReopenDelta is a hack to to hold off the "too many open files" error
+const ReopenDelta = 1 * 1000
 
 // IndexPdfFiles returns a BlevePdf and a bleve.Index over the PDFs in `pathList`.
 // The index is stored on disk in `persistDir`.
@@ -106,7 +108,9 @@ func IndexPdfFiles(pathList []string, persistDir string, forceCreate bool, repor
 
 	fileNum := 0
 	totalFiles := 0
-	lastReopen := 0
+	totalPages := 0
+	openForPages := 0
+	maxOpenPages := 0
 	docCount00, err := index.DocCount()
 	if err != nil {
 		return nil, nil, 0, 0, dtPdf, dtBleve, err
@@ -124,6 +128,17 @@ func IndexPdfFiles(pathList []string, persistDir string, forceCreate bool, repor
 		}
 		if len(docContents) == 0 {
 			continue
+		}
+
+		if openForPages+len(docContents) > ReopenDelta {
+			index, err = reopenBleve(index)
+			if err != nil {
+				panic(err)
+				return nil, nil, 0, 0, dtPdf, dtBleve, err
+			}
+			common.Log.Info("++++ Reopened at %d to avoid %d open pages",
+				openForPages, openForPages+len(docContents))
+			openForPages = 0
 		}
 
 		blevePdf.check()
@@ -161,7 +176,12 @@ func IndexPdfFiles(pathList []string, persistDir string, forceCreate bool, repor
 				docCount0, docCount, docPages, len(docContents))
 			panic(err)
 		}
-		totalPages := int(docCount - docCount00)
+		totalPages += docPages
+		openForPages += docPages
+		if openForPages > maxOpenPages {
+			maxOpenPages = openForPages
+			common.Log.Info("maxOpenPages=%d", maxOpenPages)
+		}
 		totalFiles++
 		totalSec := dtTotal.Seconds()
 		rate := 0.0
@@ -175,15 +195,6 @@ func IndexPdfFiles(pathList []string, persistDir string, forceCreate bool, repor
 				totalPages, totalSec, rate,
 				fd.InPath))
 		}
-		if totalPages > lastReopen+ReopenDelta {
-			index, err = reopenBleve(index)
-			if err != nil {
-				panic(err)
-				return nil, nil, 0, 0, dtPdf, dtBleve, err
-			}
-			lastReopen = totalPages
-			common.Log.Info("++++ Reopened at %d", lastReopen)
-		}
 	}
 
 	// Write out the worker loads to see how evenly they are spread.
@@ -196,7 +207,11 @@ func IndexPdfFiles(pathList []string, persistDir string, forceCreate bool, repor
 	if err != nil {
 		return nil, nil, 0, 0, dtPdf, dtBleve, err
 	}
-	totalPages := int(docCount - docCount00)
+	totalPages2 := int(docCount - docCount00)
+	if totalPages2 != totalPages {
+		common.Log.Error("^@^ totalPages=%d totalPages2=%d docCount=%d docCount00=%d",
+			totalPages, totalPages2, docCount, docCount00)
+	}
 	return blevePdf, index, totalFiles, totalPages, dtPdf, dtBleve, err
 }
 

@@ -115,10 +115,17 @@ func (docPos *DocPositions) Save() error {
 
 // Close closes `docPos`'s open files.
 func (docPos *DocPositions) Close() error {
+	if docPos == nil {
+		panic("docPos.Close twice")
+	}
 	if err := docPos.Save(); err != nil {
 		return err
 	}
-	return docPos.dataFile.Close()
+	if err := docPos.dataFile.Close(); err != nil {
+		return err
+	}
+	docPos.dataFile = nil
+	return nil
 }
 
 // AddDocPage adds a page with (1-offset) page number `pageNum` and contents `ppos` to `docPos`.

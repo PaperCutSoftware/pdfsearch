@@ -348,6 +348,7 @@ func (blevePdf *BlevePdf) writeDocContents(fd fileDesc, docContents []pageConten
 	}
 	docPages, err := blevePdf.addDocContents(docContents, docPos)
 	if err != nil {
+		docPos.Close()
 		//  This should delete the document directory from disk.
 		if err2 := blevePdf.deleteDocPositions(docPos); err2 != nil {
 			common.Log.Error("writeDocContents. Couldn't delete docPos err=%v", err2)
@@ -355,6 +356,7 @@ func (blevePdf *BlevePdf) writeDocContents(fd fileDesc, docContents []pageConten
 		blevePdf.remove(fd.Hash)
 		return nil, err
 	}
+	docPos.Close()
 	return docPages, err
 }
 
