@@ -27,7 +27,7 @@ func FileSize(filename string) (int64, error) {
 	return fi.Size(), nil
 }
 
-// FileSize returns the size of file `filename` in bytes.
+// FileSizeMB returns the size of file `filename` in megabytes.
 func FileSizeMB(filename string) (float64, error) {
 	size, err := FileSize(filename)
 	return float64(size) / 1024.0 / 1024.0, err

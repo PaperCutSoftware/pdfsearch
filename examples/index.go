@@ -40,12 +40,17 @@ func main() {
 		os.Exit(1)
 	}
 	pathList = cmd_utils.CleanCorpus(pathList)
-	// pathList = pathList[7700:]
+	// if len(pathList) > 8000 {
+	// 	pathList = pathList[7700:]
+	// }
 	if len(pathList) < 1 {
 		fmt.Fprintf(os.Stderr, "No files matching %q.\n", flag.Args())
 		os.Exit(1)
 	}
 	pathList = cmd_utils.PartShuffle(pathList)
+	// if len(pathList) > 1800 {
+	// 	pathList = pathList[1800:]
+	// }
 
 	if doCPUProfile {
 		profilePath := "cpu.index.prof"

@@ -25,6 +25,8 @@ type IDText struct {
 	Text string
 }
 
+var BleveIsLive = true
+
 // indexDocPagesLoc adds the text of all the pages in the PDF `fd.InPath` to `blevePdf` and to bleve
 // index `index`.
 // writeDocContents updates blevePdf with `fd` which describes a PDF on disk and `docContents`, the
@@ -49,25 +51,27 @@ func (blevePdf *BlevePdf) indexDocPagesLoc(index bleve.Index, fd fileDesc, docCo
 	common.Log.Debug("indexDocPagesLoc: inPath=%q docPages=%d", fd.InPath, len(docPages))
 
 	t0 = time.Now()
-	// Prepare `batch` for the bleve index update.
+	// Prepare `batch` for the Bleve index update.
 	batch := index.NewBatch()
 	for i, dp := range docPages {
-		// Don't weigh down the bleve index with the text bounding boxes, just give it the bare
+		// Don't weigh down the Bleve index with the text bounding boxes, just give it the bare
 		// mininum it needs: an id that encodes the document number and page number; and text.
 		id := fmt.Sprintf("%04X.%d", dp.DocIdx, dp.PageIdx)
 		idText := IDText{ID: id, Text: dp.Text}
 
-		err = batch.Index(id, idText)
-		if err != nil {
-			return dtPdf, dtBleve, err
-		}
-		if batch.Size() >= 100 {
-			// Update `index`, the bleve index.
-			err = index.Batch(batch)
+		if BleveIsLive {
+			err = batch.Index(id, idText)
 			if err != nil {
 				return dtPdf, dtBleve, err
 			}
-			batch = index.NewBatch()
+			if batch.Size() >= 100 {
+				// Update `index`, the bleve index.
+				err = index.Batch(batch)
+				if err != nil {
+					return dtPdf, dtBleve, err
+				}
+				batch = index.NewBatch()
+			}
 		}
 		dt := time.Since(t0)
 		if i%100 == 0 {
@@ -274,11 +278,14 @@ func extractDocPagePositions(inPath string) (fileDesc, []pageContents, error) {
 		panic(err) // !@#$ should never happen
 		return fileDesc{}, nil, err
 	}
+	if fd.InPath == "" {
+		panic(inPath)
+	}
 
 	// Compute the document contents.
 	docContents, err := extractDocContents(fd)
 	if err != nil {
-		return fileDesc{}, nil, err
+		return fd, nil, err
 	}
 	return fd, docContents, nil
 }
@@ -434,6 +441,7 @@ func (blevePdf *BlevePdf) removeBlevePdf() error {
 			blevePdf.root, flPath)
 		return errors.New("not a BlevePdf directory")
 	}
+	panic(fmt.Errorf("removing blevePdf.root=%q", blevePdf.root))
 	err := utils.RemoveDirectory(blevePdf.root)
 	if err != nil {
 		common.Log.Error("RemoveDirectory(%q) failed. err=%v", blevePdf.root, err)

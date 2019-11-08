@@ -42,7 +42,7 @@ func main() {
 	}
 
 	// We always want to see all errors in our testing.
-	pdfsearch.ExposeErrors()
+	// pdfsearch.ExposeErrors()
 
 	// The term to search for.
 	term := strings.Join(flag.Args(), " ")

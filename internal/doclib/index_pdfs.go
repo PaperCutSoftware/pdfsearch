@@ -20,6 +20,7 @@ import (
 
 // continueOnFailure tells us whether to continue indexing PDFs after errors have occurred.
 const continueOnFailure = true
+const ReopenDelta = 500 // 10 * 1000
 
 // IndexPdfFiles returns a BlevePdf and a bleve.Index over the PDFs in `pathList`.
 // The index is stored on disk in `persistDir`.
@@ -35,6 +36,9 @@ const continueOnFailure = true
 func IndexPdfFiles(pathList []string, persistDir string, forceCreate bool, report func(string)) (
 	*BlevePdf, bleve.Index, int, int, time.Duration, time.Duration, error) {
 	common.Log.Debug("Indexing %d PDFs. forceCreate=%t", len(pathList), forceCreate)
+	if forceCreate {
+		panic("forceCreate")
+	}
 	var dtPdf, dtBleve, dtB time.Duration
 
 	// !@#$
@@ -55,7 +59,13 @@ func IndexPdfFiles(pathList []string, persistDir string, forceCreate bool, repor
 		}
 	} else {
 		indexPath := filepath.Join(persistDir, "bleve")
-		common.Log.Debug("indexPath=%q", indexPath)
+		common.Log.Info("indexPath=%q", indexPath)
+		// sep := string(filepath.Separator)
+		// common.Log.Info("sep=%q", sep)
+		// indexPath = indexPath + string(filepath.Separator)
+		common.Log.Info("indexPath=%q", indexPath)
+		indexPath, _ = filepath.Abs(indexPath)
+		common.Log.Info("indexPath=%q", indexPath)
 		// Create a new Bleve index.
 		index, err = createBleveDiskIndex(indexPath, forceCreate)
 		if err != nil {
@@ -96,6 +106,7 @@ func IndexPdfFiles(pathList []string, persistDir string, forceCreate bool, repor
 
 	fileNum := 0
 	totalFiles := 0
+	lastReopen := 0
 	docCount00, err := index.DocCount()
 	if err != nil {
 		return nil, nil, 0, 0, dtPdf, dtBleve, err
@@ -141,16 +152,16 @@ func IndexPdfFiles(pathList []string, persistDir string, forceCreate bool, repor
 		}
 		common.Log.Debug("Indexed %q. Total %d pages indexed.", fd.InPath, docCount)
 		docPages := int(docCount - docCount0)
-		if docPages <= 0 {
+		if BleveIsLive && docPages <= 0 {
 			for i, p := range docContents {
 				common.Log.Info("page %d %d---------------------------\n%s", i, len(p.text),
 					truncate(p.text, 100))
 			}
-			err := fmt.Errorf("Didn't add pages to bleve: docCount0=%d docCount=%d docPages=%d docContents=%d",
+			err := fmt.Errorf("didn't add pages to Bleve: docCount0=%d docCount=%d docPages=%d docContents=%d",
 				docCount0, docCount, docPages, len(docContents))
 			panic(err)
 		}
-		totalPages := int(docCount)
+		totalPages := int(docCount - docCount00)
 		totalFiles++
 		totalSec := dtTotal.Seconds()
 		rate := 0.0
@@ -163,6 +174,15 @@ func IndexPdfFiles(pathList []string, persistDir string, forceCreate bool, repor
 				docPages, dt.Seconds(),
 				totalPages, totalSec, rate,
 				fd.InPath))
+		}
+		if totalPages > lastReopen+ReopenDelta {
+			index, err = reopenBleve(index)
+			if err != nil {
+				panic(err)
+				return nil, nil, 0, 0, dtPdf, dtBleve, err
+			}
+			lastReopen = totalPages
+			common.Log.Info("++++ Reopened at %d", lastReopen)
 		}
 	}
 
@@ -223,6 +243,9 @@ func extractPDFText(workerNum int, pathChan <-chan orderedPath, extractedChan ch
 		// dtIdle := time.Since(tIdle)
 		t0 := time.Now()
 		fd, docContents, err := extractDocPagePositions(op.inPath)
+		if fd.InPath == "" {
+			panic(fmt.Errorf("No path 1). op=%+v", op))
+		}
 		t1 := time.Now()
 		// dt := time.Since(t0)
 		dtIdle := t0.Sub(tIdle)
@@ -233,6 +256,9 @@ func extractPDFText(workerNum int, pathChan <-chan orderedPath, extractedChan ch
 			docContents: docContents,
 			dt:          dt,
 			err:         err,
+		}
+		if e.fd.InPath == "" {
+			panic(fmt.Errorf("No path 2). op=%+v e=%+v", op, e))
 		}
 		extractedChan <- e
 		numDocs++

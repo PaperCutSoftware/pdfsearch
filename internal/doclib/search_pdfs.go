@@ -123,9 +123,10 @@ func SearchPdfIndex(persistDir, term string, maxResults int) (PdfMatchSet, error
 	// Open existing index.
 	index, err := bleve.Open(indexPath)
 	if err != nil {
-		return p, fmt.Errorf("Could not open Bleve index %q", indexPath)
+		return p, fmt.Errorf("Could not open Bleve index %q err=%v", indexPath, err)
 	}
-	common.Log.Debug("index=%v", index)
+	common.Log.Info("index=%q", index.Name())
+	common.Log.Info("index=%v", index)
 
 	blevePdf, err := openBlevePdf(persistDir, false)
 	if err != nil {

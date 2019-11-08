@@ -64,7 +64,7 @@ const (
 func IndexPdfFiles(pathList []string, persistDir string, report func(string)) (PdfIndex, error) {
 	t0 := time.Now()
 	_, bleveIdx, numFiles, numPages, dtPdf, dtBleve, err := doclib.IndexPdfFiles(pathList,
-		persistDir, true, report)
+		persistDir, false, report)
 	if err != nil {
 		return PdfIndex{}, err
 	}
