@@ -132,7 +132,7 @@ func SearchPdfIndex(persistDir, term string, maxResults int) (PdfMatchSet, error
 	if err != nil {
 		return p, fmt.Errorf("Could not open positions store %q. err=%v", persistDir, err)
 	}
-	common.Log.Debug("blevePdf=%s", *blevePdf)
+	common.Log.Info("blevePdf=%s", *blevePdf)
 
 	results, err := blevePdf.SearchBleveIndex(index, term, maxResults)
 	if err != nil {
@@ -252,7 +252,8 @@ func truncate(text string, n int) string {
 
 // srToMatchSet maps bleve search results `sr` to PDF page names, page numbers, line
 // numbers and page locations using the tables in `blevePdf`.
-func (blevePdf *BlevePdf) srToMatchSet(tokens analysis.TokenStream, sr *bleve.SearchResult) (PdfMatchSet, error) {
+func (blevePdf *BlevePdf) srToMatchSet(tokens analysis.TokenStream, sr *bleve.SearchResult) (
+	PdfMatchSet, error) {
 	var matches []PdfPageMatch
 	if sr.Total > 0 && sr.Request.Size > 0 {
 		for _, hit := range sr.Hits {
@@ -267,7 +268,7 @@ func (blevePdf *BlevePdf) srToMatchSet(tokens analysis.TokenStream, sr *bleve.Se
 		}
 	}
 
-	common.Log.Debug("srToMatchSet: hits=%d matches=%d", len(sr.Hits), len(matches))
+	common.Log.Info("srToMatchSet: hits=%d matches=%d", len(sr.Hits), len(matches))
 
 	results := PdfMatchSet{
 		TotalMatches:   int(sr.Total),
@@ -337,20 +338,25 @@ func (blevePdf *BlevePdf) hitToPdfMatch(tokens analysis.TokenStream, hit *search
 	if err != nil {
 		return PdfPageMatch{}, err
 	}
-	inPath, pageNum, ppos, err := blevePdf.docPagePositions(m.docIdx, m.pageIdx)
+
+	docPos, err := blevePdf.readDocPos(m.docIdx)
 	if err != nil {
-		return PdfPageMatch{}, err
+		panic(err)
 	}
-	text, err := blevePdf.docPageText(m.docIdx, m.pageIdx)
-	if err != nil {
-		return PdfPageMatch{}, err
-	}
+	common.Log.Info("docPos=%s", docPos)
+	common.Log.Info("m.pageIdx=%d", m.pageIdx)
+	inPath := docPos.inPath
+	pageNum := docPos.pageNums[m.pageIdx]
+	common.Log.Info("pageNum=%d", pageNum)
+	ppos := docPos.pagePositions[pageNum]
+	text := docPos.pageText[pageNum]
+
 	var lineNums []int
 	var lines []string
 	for _, span := range m.Spans {
 		lineNum, line, ok := lineNumber(text, span.Start)
 		if !ok {
-			return PdfPageMatch{}, fmt.Errorf("No line number. m=%s span=%v", m, span)
+			return PdfPageMatch{}, fmt.Errorf("no line number. m=%s span=%v", m, span)
 		}
 		lineNums = append(lineNums, lineNum)
 		lines = append(lines, line)
@@ -546,6 +552,7 @@ func decodeID(id string) (uint64, uint32, error) {
 //  `offset` in `text`.
 // !@#$ precalculate this and stop storing text!
 func lineNumber(text string, offset uint32) (int, string, bool) {
+	common.Log.Info("lineNumber: offset=%d text=%d %q", offset, len(text), truncate(text, 100))
 	endings := lineEndings(text)
 	n := len(endings)
 	i := sort.Search(len(endings), func(i int) bool { return endings[i] > offset })
@@ -553,6 +560,7 @@ func lineNumber(text string, offset uint32) (int, string, bool) {
 	if !ok {
 		common.Log.Error("lineNumber: offset=%d text=%d i=%d endings=%d %+v\n%s",
 			offset, len(text), i, n, endings, text)
+		panic("not allowed now")
 		return 0, "", false
 	}
 	common.Log.Debug("offset=%d i=%d endings=%+v", offset, i, endings)

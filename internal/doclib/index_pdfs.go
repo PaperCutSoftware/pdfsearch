@@ -43,7 +43,6 @@ func IndexPdfFiles(pathList []string, persistDir string, forceCreate bool, repor
 	}
 	var dtPdf, dtBleve, dtB time.Duration
 
-	// !@#$
 	blevePdf, err := openBlevePdf(persistDir, forceCreate)
 	if err != nil {
 		return nil, nil, 0, 0, dtPdf, dtBleve, fmt.Errorf("Could not create positions store %q. "+
@@ -62,9 +61,6 @@ func IndexPdfFiles(pathList []string, persistDir string, forceCreate bool, repor
 	} else {
 		indexPath := filepath.Join(persistDir, "bleve")
 		common.Log.Info("indexPath=%q", indexPath)
-		// sep := string(filepath.Separator)
-		// common.Log.Info("sep=%q", sep)
-		// indexPath = indexPath + string(filepath.Separator)
 		common.Log.Info("indexPath=%q", indexPath)
 		indexPath, _ = filepath.Abs(indexPath)
 		common.Log.Info("indexPath=%q", indexPath)
@@ -123,23 +119,25 @@ func IndexPdfFiles(pathList []string, persistDir string, forceCreate bool, repor
 		fd, docContents, dtPdf, err := e.fd, e.docContents, e.dt, e.err
 		if err != nil {
 			common.Log.Error("IndexPdfFiles: Couldn't extract pages from %q err=%v", fd.InPath, err)
+			panic(err)
 			continue //!@#$ should be configurable
 			// return nil, nil, 0, 0, dtPdf, dtBleve, err
 		}
+		common.Log.Info("fileNum=%d\n\tfd=%v\n\tdocContents=%d", fileNum, fd, len(docContents))
 		if len(docContents) == 0 {
 			continue
 		}
 
-		if openForPages+len(docContents) > ReopenDelta {
-			index, err = reopenBleve(index)
-			if err != nil {
-				panic(err)
-				return nil, nil, 0, 0, dtPdf, dtBleve, err
-			}
-			common.Log.Info("++++ Reopened at %d to avoid %d open pages",
-				openForPages, openForPages+len(docContents))
-			openForPages = 0
-		}
+		// if openForPages+len(docContents) > ReopenDelta {
+		// 	index, err = reopenBleve(index)
+		// 	if err != nil {
+		// 		panic(err)
+		// 		return nil, nil, 0, 0, dtPdf, dtBleve, err
+		// 	}
+		// 	common.Log.Info("++++ Reopened at %d to avoid %d open pages",
+		// 		openForPages, openForPages+len(docContents))
+		// 	openForPages = 0
+		// }
 
 		blevePdf.check()
 		t0 := time.Now()
@@ -149,6 +147,7 @@ func IndexPdfFiles(pathList []string, persistDir string, forceCreate bool, repor
 		}
 
 		_, dtB, err = blevePdf.indexDocPagesLoc(index, fd, docContents)
+
 		dtBleve += dtB
 
 		dt := time.Since(t0)

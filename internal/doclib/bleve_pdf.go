@@ -3,8 +3,12 @@
 package doclib
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
+	"hash/crc32"
+	"io"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"sort"
@@ -12,6 +16,8 @@ import (
 	"time"
 
 	"github.com/blevesearch/bleve"
+	flatbuffers "github.com/google/flatbuffers/go"
+	"github.com/papercutsoftware/pdfsearch/internal/serial"
 	"github.com/papercutsoftware/pdfsearch/internal/utils"
 	"github.com/unidoc/unipdf/v3/common"
 	"github.com/unidoc/unipdf/v3/model"
@@ -37,27 +43,30 @@ func (blevePdf *BlevePdf) indexDocPagesLoc(index bleve.Index, fd fileDesc, docCo
 
 	t0 := time.Now()
 
-	// Update blevePdf, the PDF <-> bleve mapping.
-	docPages, err := blevePdf.writeDocContents(fd, docContents)
-	if err != nil {
-		common.Log.Error("indexDocPagesLoc: Couldn't add doc contents to blevePdf %q err=%v",
-			fd.InPath, err)
-		return dtPdf, dtBleve, err
+	docIdx, _, exists := blevePdf.addFile(fd)
+	if exists {
+		common.Log.Info("indexDocPagesLoc: inPath=%q is already indexed", fd.InPath)
+		panic("duplicate")
+		return dtPdf, dtBleve, nil
 	}
-	if len(docPages) == 0 {
+	docPos := blevePdf.baseFields(docIdx)
+	docPos.addDocContents(docContents)
+	common.Log.Info("docPos=%v", docPos)
+
+	if len(docPos.pageNums) == 0 {
 		panic("no pages")
 	}
 	dtPdf = time.Since(t0)
-	common.Log.Debug("indexDocPagesLoc: inPath=%q docPages=%d", fd.InPath, len(docPages))
+	common.Log.Debug("indexDocPagesLoc: inPath=%q docPages=%d", fd.InPath, len(docPos.pageNums))
 
 	t0 = time.Now()
 	// Prepare `batch` for the Bleve index update.
 	batch := index.NewBatch()
-	for i, dp := range docPages {
+	for pageIdx, pageNum := range docPos.pageNums {
 		// Don't weigh down the Bleve index with the text bounding boxes, just give it the bare
 		// mininum it needs: an id that encodes the document number and page number; and text.
-		id := fmt.Sprintf("%04X.%d", dp.DocIdx, dp.PageIdx)
-		idText := IDText{ID: id, Text: dp.Text}
+		id := fmt.Sprintf("%04X.%d", docIdx, pageIdx)
+		idText := IDText{ID: id, Text: docPos.pageText[pageNum]}
 
 		if BleveIsLive {
 			err = batch.Index(id, idText)
@@ -74,9 +83,9 @@ func (blevePdf *BlevePdf) indexDocPagesLoc(index bleve.Index, fd fileDesc, docCo
 			}
 		}
 		dt := time.Since(t0)
-		if i%100 == 0 {
+		if pageIdx%100 == 0 {
 			common.Log.Debug("\tIndexed %2d of %d pages in %5.1f sec (%.2f sec/page)",
-				i+1, len(docPages), dt.Seconds(), dt.Seconds()/float64(i+1))
+				pageIdx+1, len(docPos.pageNums), dt.Seconds(), dt.Seconds()/float64(pageIdx+1+1))
 			common.Log.Debug("\tid=%q text=%d", id, len(idText.Text))
 		}
 	}
@@ -88,10 +97,171 @@ func (blevePdf *BlevePdf) indexDocPagesLoc(index bleve.Index, fd fileDesc, docCo
 	}
 
 	dtBleve = time.Since(t0)
+
+	err = blevePdf.commitDocPos(docPos)
+	if err != nil {
+		panic(err)
+		return dtPdf, dtBleve, err
+	}
+
 	dt := dtPdf + dtBleve
-	common.Log.Debug("\tIndexed %d pages in %.1f (Pdf) + %.1f (bleve) = %.1f sec (%.3f sec/page)\n",
-		len(docPages), dtPdf.Seconds(), dtBleve.Seconds(), dt.Seconds(), dt.Seconds()/float64(len(docPages)))
+	common.Log.Info("\tIndexed %d pages in %.1f (Pdf) + %.1f (bleve) = %.1f sec (%.3f sec/page)\n",
+		len(docPos.pageNums), dtPdf.Seconds(), dtBleve.Seconds(), dt.Seconds(),
+		dt.Seconds()/float64(len(docPos.pageNums)))
+
 	return dtPdf, dtBleve, err
+}
+
+func (blevePdf *BlevePdf) commitDocPos(docPos *DocPositions) error {
+	err := blevePdf.commitDocPosInner(docPos)
+	if err != nil {
+		panic(err)
+		// delete all files
+	}
+	return err
+}
+
+func (blevePdf *BlevePdf) commitDocPosInner(docPos *DocPositions) error {
+	common.Log.Info("docPos=%v", docPos)
+	f, err := os.Create(docPos.dataPath)
+	if err != nil {
+		panic(err)
+		return err
+	}
+	defer f.Close()
+
+	err = utils.MkDir(docPos.textDir)
+	if err != nil {
+		panic(err)
+		return err
+	}
+
+	pagePartitions := make([]pagePartition, len(docPos.pageNums))
+	for iii, pageNum := range docPos.pageNums {
+		pageIdx := uint32(iii)
+		ppos := docPos.pagePositions[pageNum]
+		b := flatbuffers.NewBuilder(0)
+		buf := serial.MakeDocPageLocations(b, ppos.offsetBBoxes)
+		check := crc32.ChecksumIEEE(buf) // uint32
+		offset, err := f.Seek(0, io.SeekCurrent)
+		if err != nil {
+			panic(err)
+			return err
+		}
+		if _, err := f.Write(buf); err != nil {
+			return err
+		}
+		pagePartitions[pageIdx] = pagePartition{
+			Offset:  uint32(offset),
+			Size:    uint32(len(buf)),
+			Check:   check,
+			PageNum: uint32(pageNum),
+		}
+
+		// !@#$ Remove. Maybe record line numbers.
+		filename := docPos.textPath(pageIdx)
+		text := docPos.pageText[pageNum]
+		err = ioutil.WriteFile(filename, []byte(text), 0644)
+		if err != nil {
+			panic(err)
+			return err
+		}
+	}
+
+	b, err := json.MarshalIndent(pagePartitions, "", "\t")
+	if err != nil {
+		panic(err)
+		return err
+	}
+	if len(b) < 100 {
+		panic(fmt.Errorf("too small %d %q", len(b), string(b)))
+	}
+	err = ioutil.WriteFile(docPos.partitionsPath, b, 0666)
+	if err != nil {
+		panic(err)
+		return err
+	}
+	return nil
+}
+
+func (blevePdf *BlevePdf) readDocPos(docIdx uint64) (*DocPositions, error) {
+	common.Log.Info("readDocPos: docIdx=%d", docIdx)
+	docPos := blevePdf.baseFields(docIdx)
+
+	common.Log.Info("readDocPos: partitionsPath=%q", docPos.partitionsPath)
+	b, err := ioutil.ReadFile(docPos.partitionsPath)
+	if err != nil {
+		return nil, err
+	}
+	common.Log.Info("readDocPos: partition bytes=%d %q", len(b), string(b))
+
+	var pagePartitions []pagePartition
+	json.Unmarshal(b, &pagePartitions)
+	if err != nil {
+		return nil, err
+	}
+
+	common.Log.Info("readDocPos: pagePartitions=%d", len(pagePartitions))
+
+	f, err := os.Open(docPos.dataPath)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+
+	pageNums := make([]uint32, len(pagePartitions))
+	docPos.pagePositions = map[uint32]PagePositions{}
+	docPos.pageText = map[uint32]string{}
+	common.Log.Info("docPos.pageText=%d %t", len(docPos.pageText), docPos.pageText != nil)
+	common.Log.Info("docPos.pagePositions=%d %t", len(docPos.pagePositions), docPos.pagePositions != nil)
+	for iii, partition := range pagePartitions {
+		pageIdx := uint32(iii)
+		offset := partition.Offset
+		size := partition.Size
+		check := partition.Check
+		pageNum := partition.PageNum
+
+		pageNums[iii] = pageNum
+
+		buf := make([]byte, size)
+		offset2, err := f.Seek(int64(offset), io.SeekStart)
+		if err != nil {
+			return nil, err
+		}
+		if offset2 != int64(offset) {
+			panic("bad seek")
+		}
+		if _, err := f.Read(buf); err != nil {
+			return nil, err
+		}
+		check2 := crc32.ChecksumIEEE(buf) // uint32
+		if check2 != check {
+			panic("bad checksum")
+		}
+
+		offsetBBoxes, err := serial.ReadDocPageLocations(buf)
+		if err != nil {
+			return nil, err
+		}
+		ppos := PagePositions{offsetBBoxes: offsetBBoxes}
+		docPos.pagePositions[pageNum] = ppos
+
+		// !@#$ Remove. Maybe record line numbers.
+		filename := docPos.textPath(pageIdx)
+		textBytes, err := ioutil.ReadFile(filename)
+		if err != nil {
+			panic(err)
+			return nil, err
+		}
+		docPos.pageText[pageNum] = string(textBytes)
+	}
+	docPos.pageNums = pageNums
+
+	common.Log.Info("readDocPos: docPos.pageNums=%d", len(docPos.pageNums))
+	common.Log.Info("readDocPos: docPos.pagePositions=%d", len(docPos.pagePositions))
+	common.Log.Info("readDocPos: docPos.pageText=%d", len(docPos.pageText))
+
+	return docPos, nil
 }
 
 /*
@@ -135,7 +305,7 @@ func (blevePdf *BlevePdf) indexDocPagesLoc(index bleve.Index, fd fileDesc, docCo
 
 const storeUpdatePeriodSec = 60.0
 
-// BlevePdf links a bleve index over texts to the PDFs that the texts were extracted from,
+// BlevePdf links a Bleve index over texts to the PDFs that the texts were extracted from,
 // using the hashDoc {file hash: DocPositions} map. For each PDF, the DocPositions maps
 // extracted text to the location of text on the PDF page it was extracted from.
 // A BlevePdf can be saved to and retrieved from disk.
@@ -153,9 +323,12 @@ type BlevePdf struct {
 func (blevePdf BlevePdf) String() string {
 	var parts []string
 	parts = append(parts,
-		fmt.Sprintf("%q fdList=%d indexHash=%d hashDoc=%d time=%s",
-			blevePdf.root, len(blevePdf.fdList), len(blevePdf.indexHash),
-			len(blevePdf.hashDoc), blevePdf.updateTime))
+		fmt.Sprintf("%q. Updated %s [fdList=%d indexHash=%d hashDoc=%d]",
+			blevePdf.root,
+			blevePdf.updateTime.Format("Mon 2 Jan 2006 3:04:00 pm"),
+			len(blevePdf.fdList),
+			len(blevePdf.indexHash),
+			len(blevePdf.hashDoc)))
 	for k, docPos := range blevePdf.hashDoc {
 		parts = append(parts, fmt.Sprintf("%q: %d", k, docPos.Len()))
 	}
@@ -227,6 +400,7 @@ func (blevePdf BlevePdf) check() {
 }
 
 // pdfXrefDir returns the full path of PDF content <-> bleve index mappings on disk.
+// !@#$ Rename BlevePdf -> pdfXref
 func (blevePdf BlevePdf) pdfXrefDir() string {
 	return filepath.Join(blevePdf.root, "pdf.xref")
 }
@@ -251,6 +425,7 @@ func openBlevePdf(root string, forceCreate bool) (*BlevePdf, error) {
 	filename := blevePdf.fileListPath()
 	fdList, err := loadFileDescList(filename)
 	if err != nil {
+		panic(err)
 		return nil, err
 	}
 	blevePdf.fdList = fdList
@@ -258,12 +433,27 @@ func openBlevePdf(root string, forceCreate bool) (*BlevePdf, error) {
 		blevePdf.indexHash[uint64(i)] = fd.Hash
 	}
 
-	blevePdf.updateTime = time.Now()
-	common.Log.Debug("OpenBlevePdf: blevePdf=%s", blevePdf)
+	fileInfo, err := os.Stat(filename)
+	if err == nil {
+		blevePdf.updateTime = fileInfo.ModTime()
+	} else {
+		blevePdf.updateTime = time.Now()
+	}
+
+	err = blevePdf.createIfNecessary()
+	if err != nil {
+		panic(err)
+		return nil, err
+	}
+
+	// !@#$ Save last update time in flush
+	common.Log.Info("OpenBlevePdf: blevePdf=%s", blevePdf)
+
+	// blevePdf.updateTime = time.Now()
 	return &blevePdf, nil
 }
 
-// pageContents are the result of text extraction on a PDF page
+// pageContents are the result of text extraction on a PDF page.
 type pageContents struct {
 	pageNum uint32        // (1-offset) PDF page number.
 	ppos    PagePositions // Positions of PDF text fragments on page.
@@ -334,63 +524,6 @@ func extractDocContents(fd fileDesc) ([]pageContents, error) {
 	return docContents, err
 }
 
-// writeDocContents updates blevePdf with `fd` which describes a PDF on disk and `docContents`, the
-// document contents of the PDF `fd.InPath`.
-// It returns the docContents as a []DocPageText. !@#$ Why?
-// This function is supposed to be atomic. If writing the document contents to disk fails at any
-// stage, all references to the document are removed. !@#$ Remove from bleve too.
-func (blevePdf *BlevePdf) writeDocContents(fd fileDesc, docContents []pageContents) ([]DocPageText,
-	error) {
-	defer blevePdf.check()
-	docPos, err := blevePdf.createDocPositions(fd)
-	if err != nil {
-		return nil, err
-	}
-	docPages, err := blevePdf.addDocContents(docContents, docPos)
-	if err != nil {
-		docPos.Close()
-		//  This should delete the document directory from disk.
-		if err2 := blevePdf.deleteDocPositions(docPos); err2 != nil {
-			common.Log.Error("writeDocContents. Couldn't delete docPos err=%v", err2)
-		}
-		blevePdf.remove(fd.Hash)
-		return nil, err
-	}
-	docPos.Close()
-	return docPages, err
-}
-
-// addDocContents writes `docContents` to the files in `docPos`.
-func (blevePdf *BlevePdf) addDocContents(docContents []pageContents, docPos *DocPositions) (
-	[]DocPageText, error) {
-	var docPages []DocPageText
-	for _, contents := range docContents {
-		pageIdx, err := docPos.AddDocPage(contents.pageNum, contents.ppos, contents.text)
-		if err != nil {
-			return nil, err
-		}
-
-		docPages = append(docPages, DocPageText{
-			DocIdx:  docPos.docIdx,
-			PageIdx: pageIdx,
-			PageNum: contents.pageNum,
-			Text:    contents.text,
-		})
-		if len(docPages)%100 == 99 {
-			common.Log.Debug("  pageNum=%d docPages=%d %q", contents.pageNum, len(docPages))
-		}
-		dp := docPages[len(docPages)-1]
-		common.Log.Trace("addDocContents: DocIdx=%d PageIdx=%d", dp.DocIdx, dp.PageIdx)
-	}
-
-	err := docPos.Close()
-	if err != nil {
-		return nil, err
-	}
-	blevePdf.check()
-	return docPages, err
-}
-
 // addFile adds PDF fileDesc `fd` to `blevePdf.fdList`.
 // returns: docIdx, inPath, exists
 //     docIdx: Index of PDF in `blevePdf.fdList`.
@@ -418,6 +551,7 @@ func (blevePdf *BlevePdf) addFile(fd fileDesc) (uint64, string, bool) {
 }
 
 // flush saves `blevePdf` to disk.
+// !@#$ Move fileListPath to BoltDB?
 func (blevePdf *BlevePdf) flush() error {
 	dt := time.Since(blevePdf.updateTime)
 	docIdx := uint64(len(blevePdf.fdList) - 1)
@@ -472,65 +606,6 @@ func (blevePdf *BlevePdf) createIfNecessary() error {
 	return utils.MkDir(d)
 }
 
-// docPageText returns the text extracted from the PDF page with document and page indices
-// `docIdx` and `pageIdx`.
-func (blevePdf *BlevePdf) docPageText(docIdx uint64, pageIdx uint32) (string, error) {
-	docPos, err := blevePdf.openDocPosition(docIdx)
-	if err != nil {
-		return "", err
-	}
-	defer docPos.Close()
-	common.Log.Trace("docPageText: docPos=%s", docPos)
-	return docPos.pageText(pageIdx)
-}
-
-// docPagePositions returns (inPath, pageNum, ppos, err) for the PDF page with document and page
-// indices `docIdx` and `pageIdx` where
-//   inPath: name of PDf file
-//   pageNum: (1-offset) page number of PDF page
-//   ppos: PagePositions for the page text (maps text offsets to PDF page locations)
-// TODO: Deprecate. docPagePositions is inefficient. A DocPositions (a file) is opened and closed
-// to read a page.
-func (blevePdf *BlevePdf) docPagePositions(docIdx uint64, pageIdx uint32) (
-	string, uint32, PagePositions, error) {
-	docPos, err := blevePdf.openDocPosition(docIdx)
-	if err != nil {
-		return "", 0, PagePositions{}, err
-	}
-	defer docPos.Close()
-	pageNum, ppos, err := docPos.pageNumPositions(pageIdx)
-	common.Log.Trace("docIdx=%d docPos=%s pageNum=%d", docIdx, docPos, pageNum)
-	docPos.check()
-	return docPos.inPath, pageNum, ppos, err
-}
-
-// createDocPositions adds fileDesc `fd` to `blevePdf` and returns a DocPositions for writing.
-// createDocPositions always populates the returned DocPositions with base fields.
-// Necessary directories are created and files are opened.
-func (blevePdf *BlevePdf) createDocPositions(fd fileDesc) (*DocPositions, error) {
-	common.Log.Debug("createDocPositions: blevePdf.pdfXrefDir=%q", blevePdf.pdfXrefDir())
-	docIdx, inPath, exists := blevePdf.addFile(fd)
-	if exists {
-		common.Log.Error("createDocPositions: %q is the same PDF as %q. Ignoring",
-			fd.InPath, inPath)
-		return nil, errors.New("duplicate PDF")
-	}
-	docPos, err := blevePdf.baseFields(docIdx)
-	if err != nil {
-		return nil, err
-	}
-	// Persistent case.
-	if err = blevePdf.createIfNecessary(); err != nil {
-		return nil, err
-	}
-	docPos.dataFile, err = os.Create(docPos.dataPath)
-	if err != nil {
-		return nil, err
-	}
-	err = utils.MkDir(docPos.textDir)
-	return docPos, err
-}
-
 // !@#$ also delete from bleve
 func (blevePdf *BlevePdf) deleteDocPositions(docPos *DocPositions) error {
 	common.Log.Info("deleteDocPositions:\n\tblevePdf.pdfXrefDir=%q\n\tdataPath=%q\n\ttextDir=%q",
@@ -554,31 +629,20 @@ func (blevePdf *BlevePdf) deleteDocPositions(docPos *DocPositions) error {
 	return nil
 }
 
-// openDocPosition opens a DocPositions for reading.
-// Necessary files are opened in docPos.openDoc().
-func (blevePdf *BlevePdf) openDocPosition(docIdx uint64) (*DocPositions, error) {
-	docPos, err := blevePdf.baseFields(docIdx)
-	if err != nil {
-		return nil, err
-	}
-	err = docPos.openDoc()
-	return docPos, err
-}
-
 // baseFields returns the DocPositions for document index `docIdx` populated with the fields that
 // are the same for Open() and Create().
-func (blevePdf *BlevePdf) baseFields(docIdx uint64) (*DocPositions, error) {
-	if int(docIdx) >= len(blevePdf.fdList) {
+func (blevePdf *BlevePdf) baseFields(docIdx uint64) *DocPositions {
+	if docIdx >= uint64(len(blevePdf.fdList)) {
 		common.Log.Error("docIdx=%d blevePdf=%s\n=%#v", docIdx, *blevePdf, *blevePdf)
-		return nil, errors.New("out of range")
+		panic(errors.New("out of range"))
 	}
+	common.Log.Info("docIdx=%d fdList=%d", docIdx, len(blevePdf.fdList))
 	inPath := blevePdf.fdList[docIdx].InPath
 	hash := blevePdf.fdList[docIdx].Hash
 
 	docPos := DocPositions{
-		inPath:        inPath,
-		docIdx:        docIdx,
-		pagePositions: map[uint32]PagePositions{},
+		inPath: inPath,
+		docIdx: docIdx,
 	}
 
 	locPath := blevePdf.docPath(hash)
@@ -588,8 +652,8 @@ func (blevePdf *BlevePdf) baseFields(docIdx uint64) (*DocPositions, error) {
 		partitionsPath: locPath + ".idx.json",
 		textDir:        locPath + ".page.contents",
 	}
-	docPos.docPersist = &persist
+	docPos.docPersist = persist
 
 	common.Log.Debug("baseFields: docIdx=%d docPos=%+v", docIdx, docPos)
-	return &docPos, nil
+	return &docPos
 }

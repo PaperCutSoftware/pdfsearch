@@ -48,7 +48,7 @@ func createBleveDiskIndex(indexPath string, forceCreate bool) (bleve.Index, erro
 				removeBleveDiskIndex(indexPath)
 				index, err = bleve.New(indexPath, mapping)
 			} else {
-				common.Log.Info("Opening existing %q.", indexPath)
+				common.Log.Info("Opening existing Bleve index %q.", indexPath)
 				index, err = bleve.Open(indexPath)
 			}
 		} else if err != nil {
@@ -62,7 +62,7 @@ func createBleveDiskIndex(indexPath string, forceCreate bool) (bleve.Index, erro
 		indexPath, forceCreate, err)
 	if index != nil {
 		docCount, err := index.DocCount()
-		common.Log.Info("name=%q DocCount=%d err=%v", index.Name(), docCount, err)
+		common.Log.Info("Bleve index=%q DocCount=%d err=%v", index.Name(), docCount, err)
 	}
 	// panic("here")
 	return index, err
