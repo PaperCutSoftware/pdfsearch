@@ -8,6 +8,7 @@ package doclib
 import (
 	"fmt"
 	"math"
+	"os"
 	"path/filepath"
 	"runtime"
 	"sort"
@@ -35,8 +36,8 @@ const ReopenDelta = 1 * 1000
 //   dtPdf: number of seconds spent building blevePdf
 //   dtBleve: number of seconds spent building index
 //   err: error, if one occurred
-func IndexPdfFiles(pathList []string, persistDir string, forceCreate bool, report func(string)) (
-	*BlevePdf, bleve.Index, int, int, time.Duration, time.Duration, error) {
+func IndexPdfFiles(pathList []string, persistDir string, forceCreate, useScorch bool,
+	report func(string)) (*BlevePdf, bleve.Index, int, int, time.Duration, time.Duration, error) {
 	common.Log.Debug("Indexing %d PDFs. forceCreate=%t", len(pathList), forceCreate)
 	if forceCreate {
 		panic("forceCreate")
@@ -55,17 +56,16 @@ func IndexPdfFiles(pathList []string, persistDir string, forceCreate bool, repor
 	if len(persistDir) == 0 {
 		index, err = createBleveMemIndex()
 		if err != nil {
-			return nil, nil, 0, 0, dtPdf, dtBleve, fmt.Errorf("Could not create Bleve memoryindex. "+
-				"err=%v", err)
+			return nil, nil, 0, 0, dtPdf, dtBleve, fmt.Errorf("Could not create Bleve memory index."+
+				" err=%v", err)
 		}
 	} else {
-		indexPath := filepath.Join(persistDir, "bleve")
-		common.Log.Info("indexPath=%q", indexPath)
+		indexPath := blevePath(persistDir)
 		common.Log.Info("indexPath=%q", indexPath)
 		indexPath, _ = filepath.Abs(indexPath)
 		common.Log.Info("indexPath=%q", indexPath)
 		// Create a new Bleve index.
-		index, err = createBleveDiskIndex(indexPath, forceCreate)
+		index, err = createBleveDiskIndex(indexPath, forceCreate, useScorch)
 		if err != nil {
 			return nil, nil, 0, 0, dtPdf, dtBleve, fmt.Errorf("Could not create Bleve index in %q",
 				indexPath)
@@ -89,6 +89,14 @@ func IndexPdfFiles(pathList []string, persistDir string, forceCreate bool, repor
 	profiles := make([]extractorProfile, numWorkers)
 	for i := 0; i < numWorkers; i++ {
 		go func(i int, profile *extractorProfile) {
+			defer func() {
+				if r := recover(); r != nil {
+					fmt.Fprintf(os.Stderr, "Recovered worker %d r=%v\n", i, r)
+					fmt.Fprintln(os.Stderr, "sleeping..")
+					time.Sleep(time.Hour)
+					panic(r)
+				}
+			}()
 			extractPDFText(i, pathChan, extractedChan, profile)
 			wg.Done()
 		}(i, &profiles[i])
@@ -119,7 +127,6 @@ func IndexPdfFiles(pathList []string, persistDir string, forceCreate bool, repor
 		fd, docContents, dtPdf, err := e.fd, e.docContents, e.dt, e.err
 		if err != nil {
 			common.Log.Error("IndexPdfFiles: Couldn't extract pages from %q err=%v", fd.InPath, err)
-			panic(err)
 			continue //!@#$ should be configurable
 			// return nil, nil, 0, 0, dtPdf, dtBleve, err
 		}
@@ -128,16 +135,16 @@ func IndexPdfFiles(pathList []string, persistDir string, forceCreate bool, repor
 			continue
 		}
 
-		// if openForPages+len(docContents) > ReopenDelta {
-		// 	index, err = reopenBleve(index)
-		// 	if err != nil {
-		// 		panic(err)
-		// 		return nil, nil, 0, 0, dtPdf, dtBleve, err
-		// 	}
-		// 	common.Log.Info("++++ Reopened at %d to avoid %d open pages",
-		// 		openForPages, openForPages+len(docContents))
-		// 	openForPages = 0
-		// }
+		if openForPages+len(docContents) > ReopenDelta {
+			index, err = reopenBleve(index)
+			if err != nil {
+				panic(err)
+				return nil, nil, 0, 0, dtPdf, dtBleve, err
+			}
+			common.Log.Info("++++ Reopened at %d to avoid %d open pages",
+				openForPages, openForPages+len(docContents))
+			openForPages = 0
+		}
 
 		blevePdf.check()
 		t0 := time.Now()
@@ -173,6 +180,7 @@ func IndexPdfFiles(pathList []string, persistDir string, forceCreate bool, repor
 			}
 			err := fmt.Errorf("didn't add pages to Bleve: docCount0=%d docCount=%d docPages=%d docContents=%d",
 				docCount0, docCount, docPages, len(docContents))
+			continue // !@#$ Check file hash before indexing
 			panic(err)
 		}
 		totalPages += docPages

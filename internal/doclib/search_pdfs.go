@@ -11,7 +11,6 @@ package doclib
 import (
 	"errors"
 	"fmt"
-	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
@@ -114,7 +113,7 @@ var ErrNoPositions = errors.New("no match for hit")
 func SearchPdfIndex(persistDir, term string, maxResults int) (PdfMatchSet, error) {
 	p := PdfMatchSet{}
 
-	indexPath := filepath.Join(persistDir, "bleve")
+	indexPath := blevePath(persistDir)
 
 	common.Log.Debug("term=%q", term)
 	common.Log.Debug("maxResults=%d", maxResults)
@@ -343,7 +342,6 @@ func (blevePdf *BlevePdf) hitToPdfMatch(tokens analysis.TokenStream, hit *search
 	if err != nil {
 		panic(err)
 	}
-	common.Log.Info("docPos=%s", docPos)
 	common.Log.Info("m.pageIdx=%d", m.pageIdx)
 	inPath := docPos.inPath
 	pageNum := docPos.pageNums[m.pageIdx]

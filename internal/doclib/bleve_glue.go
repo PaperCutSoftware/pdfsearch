@@ -26,20 +26,30 @@ func reopenBleve(index bleve.Index) (bleve.Index, error) {
 	return index, nil
 }
 
+// blevePath returns the path for the Bleve index with root at `persistDir`.
+func blevePath(persistDir string) string {
+	bleveName := "bleve"
+	// if useScorch {
+	// 	bleveName = "bleve.scorch"
+	// }
+	return filepath.Join(persistDir, bleveName)
+}
+
 // createBleveDiskIndex creates a new persistent bleve index at `indexPath`.
 // If `forceCreate` is true then an existing index will be deleted.
-func createBleveDiskIndex(indexPath string, forceCreate bool) (bleve.Index, error) {
-	common.Log.Info("Opening existing %q.", indexPath)
-	exists := utils.Exists(indexPath)
-	common.Log.Info("exists=%t", exists)
+func createBleveDiskIndex(indexPath string, forceCreate, useScorch bool) (bleve.Index, error) {
+	common.Log.Info("Attempting to open existing Bleve index at %q.", indexPath)
 	index, err := bleve.Open(indexPath)
-	// if err != nil {
-	// 	panic(fmt.Errorf("Could not open Bleve index %q err=%v", indexPath, err))
-	// }
 	if err != nil {
 		mapping := buildIndexMapping()
-		index, err = bleve.NewUsing(indexPath, mapping, scorch.Name, scorch.Name, nil)
-		common.Log.Info("createBleveDiskIndex(%q, %t) returned name=%q err=%v",
+		if useScorch {
+			common.Log.Info("Attempting to create new Bleve Scorch index at %q.", indexPath)
+			index, err = bleve.NewUsing(indexPath, mapping, scorch.Name, scorch.Name, nil)
+		} else {
+			common.Log.Info("Attempting to create new Bleve BoltDB index at %q.", indexPath)
+			index, err = bleve.New(indexPath, mapping)
+		}
+		common.Log.Info("createBleveDiskIndex(%q, forceCreate=%t) returned name=%q err=%v",
 			indexPath, forceCreate, index.Name(), err)
 		if err == bleve.ErrorIndexPathExists {
 			common.Log.Error("Bleve index %q exists.", indexPath)
@@ -58,13 +68,12 @@ func createBleveDiskIndex(indexPath string, forceCreate bool) (bleve.Index, erro
 			}
 		}
 	}
-	common.Log.Info("createBleveDiskIndex(%q, %t) returned  err=%v",
+	common.Log.Info("createBleveDiskIndex(%q, forceCreate=%t) returned  err=%v",
 		indexPath, forceCreate, err)
 	if index != nil {
 		docCount, err := index.DocCount()
 		common.Log.Info("Bleve index=%q DocCount=%d err=%v", index.Name(), docCount, err)
 	}
-	// panic("here")
 	return index, err
 }
 

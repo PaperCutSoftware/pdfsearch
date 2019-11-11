@@ -61,10 +61,11 @@ const (
 // IndexPdfFiles returns an index for the PDFs in `pathList`.
 // The index is stored on disk in `persistDir`.
 // `report` is a supplied function that is called to report progress.
-func IndexPdfFiles(pathList []string, persistDir string, report func(string)) (PdfIndex, error) {
+func IndexPdfFiles(pathList []string, persistDir string, forceCreate, useScorch bool,
+	report func(string)) (PdfIndex, error) {
 	t0 := time.Now()
 	_, bleveIdx, numFiles, numPages, dtPdf, dtBleve, err := doclib.IndexPdfFiles(pathList,
-		persistDir, false, report)
+		persistDir, forceCreate, useScorch, report)
 	if err != nil {
 		return PdfIndex{}, err
 	}

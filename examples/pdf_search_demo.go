@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime/pprof"
 	"strings"
 	"time"
 
@@ -21,8 +22,11 @@ const usage = `Usage: go run pdf_search_demo.go [OPTIONS] -f "pcng-manual*.pdf" 
 func main() {
 	var pathPattern string
 	persistDir := filepath.Join(pdfsearch.DefaultPersistRoot, "pdf_search_demo")
-	var reuse bool
-	var nameOnly bool
+	reuse := false
+	nameOnly := false
+	forceCreate := false
+	useScorch := false
+	doCPUProfile := false
 	maxSearchResults := 10
 	outPath := "search.results.pdf"
 	outDir := "search.history"
@@ -32,6 +36,10 @@ func main() {
 	flag.StringVar(&persistDir, "s", persistDir, "The on-disk index is stored here.")
 	flag.BoolVar(&reuse, "r", reuse, "Reused stored index on disk for the last -p run.")
 	flag.BoolVar(&nameOnly, "l", nameOnly, "Show matching file names only.")
+	flag.BoolVar(&forceCreate, "c", forceCreate, "Delete existing index and create a new one.")
+	flag.BoolVar(&useScorch, "S", useScorch, "Use Bleve's Scorch storage. Faster but buggy.")
+	flag.BoolVar(&doCPUProfile, "p", doCPUProfile, "Do Go CPU profiling.")
+
 	flag.IntVar(&maxSearchResults, "n", maxSearchResults, "Max number of search results to return.")
 
 	cmd_utils.MakeUsage(usage)
@@ -41,6 +49,23 @@ func main() {
 	if len(flag.Args()) < 1 {
 		flag.Usage()
 		os.Exit(1)
+	}
+
+	if doCPUProfile {
+		profilePath := "cpu.demo.prof"
+		fmt.Printf("Profiling to %s\n", profilePath)
+		f, err := os.Create(profilePath)
+		if err != nil {
+			fmt.Printf("Error: %v\n", err)
+			os.Exit(1)
+		}
+		defer f.Close()
+		err = pprof.StartCPUProfile(f)
+		if err != nil {
+			fmt.Printf("Error: %v\n", err)
+			os.Exit(1)
+		}
+		defer pprof.StopCPUProfile()
 	}
 
 	// We always want to see all errors in our testing.
@@ -73,7 +98,8 @@ func main() {
 	pathList = cmd_utils.PartShuffle(pathList)
 
 	// Run the tests.
-	if err := runIndexSearchShow(pathList, term, persistDir, reuse, nameOnly, maxResults, outPath); err != nil {
+	if err := runIndexSearchShow(pathList, term, persistDir, reuse, nameOnly, forceCreate,
+		useScorch, maxResults, outPath); err != nil {
 		fmt.Fprintf(os.Stderr, "runIndexSearchShow failed. err=%v\n", err)
 		os.Exit(1)
 	}
@@ -93,9 +119,10 @@ func main() {
 //  `reuse`: Don't create a pdfsearch.PdfIndex. Reuse one that was previously persisted to disk.
 //  `nameOnly`: Show matching file names only.
 //  `maxResults`: Max number of search results to return.
-func runIndexSearchShow(pathList []string, term, persistDir string, reuse, nameOnly bool,
-	maxResults int, outPath string) error {
-	pdfIndex, results, dt, dtIndex, err := runIndexSearch(pathList, term, persistDir, reuse, maxResults)
+func runIndexSearchShow(pathList []string, term, persistDir string, reuse, nameOnly, forceCreate,
+	useScorch bool, maxResults int, outPath string) error {
+	pdfIndex, results, dt, dtIndex, err := runIndexSearch(pathList, term, persistDir, reuse,
+		forceCreate, useScorch, maxResults)
 	if err != nil {
 		return err
 	}
@@ -110,14 +137,15 @@ func runIndexSearchShow(pathList []string, term, persistDir string, reuse, nameO
 //  `persistDir`: The directory the pdfsearch.PdfIndex is saved.
 //  `reuse`: Don't create a pdfsearch.PdfIndex. Reuse one that was previously persisted to disk.
 //  `maxResults`: Max number of search results to return.
-func runIndexSearch(pathList []string, term, persistDir string, reuse bool, maxResults int) (
+func runIndexSearch(pathList []string, term, persistDir string, reuse, forceCreate, useScorch bool,
+	maxResults int) (
 	pdfIndex pdfsearch.PdfIndex, results pdfsearch.PdfMatchSet, dt, dtIndex time.Duration, err error) {
 	t0 := time.Now()
 
 	if reuse {
 		pdfIndex = pdfsearch.ReuseIndex(persistDir)
 	} else {
-		pdfIndex, err = pdfsearch.IndexPdfFiles(pathList, persistDir, report)
+		pdfIndex, err = pdfsearch.IndexPdfFiles(pathList, persistDir, forceCreate, useScorch, report)
 		if err != nil {
 			return pdfIndex, results, dt, dtIndex, err
 		}

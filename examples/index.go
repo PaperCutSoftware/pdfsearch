@@ -20,8 +20,12 @@ const usage = `Usage: go run index.go [OPTIONS] pcng-manual*.pdf
 
 func main() {
 	persistDir := filepath.Join(pdfsearch.DefaultPersistRoot, "my.computer")
+	forceCreate := false
+	useScorch := false
 	doCPUProfile := false
 	flag.StringVar(&persistDir, "s", persistDir, "The on-disk index is stored here.")
+	flag.BoolVar(&forceCreate, "c", forceCreate, "Delete existing index and create a new one.")
+	flag.BoolVar(&useScorch, "S", useScorch, "Use Bleve's Scorch storage. Faster but buggy.")
 	flag.BoolVar(&doCPUProfile, "p", doCPUProfile, "Do Go CPU profiling.")
 	cmd_utils.MakeUsage(usage)
 	cmd_utils.MakeUsage(usage)
@@ -52,6 +56,11 @@ func main() {
 	// 	pathList = pathList[1800:]
 	// }
 
+	if len(pathList) > 4000 {
+		pathList = pathList[4000:]
+		pathList = append(pathList, pathList[:4000]...)
+	}
+
 	if doCPUProfile {
 		profilePath := "cpu.index.prof"
 		fmt.Printf("Profiling to %s\n", profilePath)
@@ -70,7 +79,7 @@ func main() {
 	}
 
 	// Run the tests.
-	if err := runIndexShow(pathList, persistDir); err != nil {
+	if err := runIndexShow(pathList, persistDir, forceCreate, useScorch); err != nil {
 		fmt.Fprintf(os.Stderr, "runIndexShow failed. err=%v\n", err)
 		os.Exit(1)
 	}
@@ -79,8 +88,8 @@ func main() {
 // runIndexShow creates a pdfsearch.PdfIndex for the PDFs in `pathList`, searches for `term` in this
 // index, and shows the results.
 //  `persistDir`: The directory the pdfsearch.PdfIndex is saved.
-func runIndexShow(pathList []string, persistDir string) error {
-	pdfIndex, dt, err := runIndex(pathList, persistDir)
+func runIndexShow(pathList []string, persistDir string, forceCreate, useScorch bool) error {
+	pdfIndex, dt, err := runIndex(pathList, persistDir, forceCreate, useScorch)
 	if err != nil {
 		return err
 	}
@@ -91,12 +100,21 @@ func runIndexShow(pathList []string, persistDir string) error {
 // pdfsearch.PdfIndex, the search results and the indexing duration.
 // The pdfsearch.PdfIndex is saved in directory `persistDir`.
 // This is the main function. It shows you how to create or open an index.
-func runIndex(pathList []string, persistDir string) (pdfIndex pdfsearch.PdfIndex, dt time.Duration,
-	err error) {
+func runIndex(pathList []string, persistDir string, forceCreate, useScorch bool) (
+	pdfIndex pdfsearch.PdfIndex, dt time.Duration, err error) {
 	fmt.Fprintf(os.Stderr, "Indexing %d files. Index stored in %q.\n", len(pathList), persistDir)
 
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Fprintf(os.Stderr, "Recovered r=%v\n", r)
+			fmt.Fprintln(os.Stderr, "sleeping..")
+			time.Sleep(time.Hour)
+			panic(r)
+		}
+	}()
+
 	t0 := time.Now()
-	pdfIndex, err = pdfsearch.IndexPdfFiles(pathList, persistDir, report)
+	pdfIndex, err = pdfsearch.IndexPdfFiles(pathList, persistDir, forceCreate, useScorch, report)
 	if err != nil {
 		return pdfIndex, dt, err
 	}

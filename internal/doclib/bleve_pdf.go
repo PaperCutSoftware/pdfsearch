@@ -173,9 +173,7 @@ func (blevePdf *BlevePdf) commitDocPosInner(docPos *DocPositions) error {
 		panic(err)
 		return err
 	}
-	if len(b) < 100 {
-		panic(fmt.Errorf("too small %d %q", len(b), string(b)))
-	}
+
 	err = ioutil.WriteFile(docPos.partitionsPath, b, 0666)
 	if err != nil {
 		panic(err)
