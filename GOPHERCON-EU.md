@@ -14,7 +14,7 @@ TALK PROPOSAL
 How I learned Go by Writing an IPP Network Print Server.
 -------------------------------------------------------
 
-In 2016, [PaperCut](https://www.papercut.com/), a printing control company, decided it needed to build its own print server. Around that time, our CEO had decided all our printing systems code, which until then had been written in C, was to be written in Go
+In 2016, [PaperCut](https://www.papercut.com/), a printing control company, decided it needed its own print server. Around that time, our CEO had decided all our printing systems code, which until then had been written in C, was to be written in Go
 going forward.
 
 PaperCut’s strategic goals for the print server were to:
@@ -34,7 +34,11 @@ IPP is a big spec, about 400 pages. Its main open source C++ implementation in
 
 In a week, I learned a lot about the Go HTTP stack, IPP byte packets and the how IPP implementation differed from the spec.
 
-At this stage, I had a base design that implemented the spec and Go code that  foreshadowed likely implementation challenges, both in Go library limitations and real-world deviations from the IPP spec. About 6 weeks later, the final IPP server was a straightforward extraction of the server half of the proxy. The client half of the proxy was the foundation of an IPP client that we used for testing the server.
+At this stage, I had
+* a base design that implemented the spec, and
+* Go code that  foreshadowed likely implementation challenges, both in Go library limitations and real-world deviations from the IPP spec.
+
+About 6 weeks later, the final IPP server was a straightforward extraction of the server half of the proxy. The client half of the proxy was the foundation of an IPP client that we used for testing the server.
 
 **In this talk I will relive this development and reproduce some of the coding that led to the initial design. The main takeaways will be learning how to:**
 * Develop code from a spec using a table driven design.
